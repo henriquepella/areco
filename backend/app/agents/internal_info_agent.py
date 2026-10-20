@@ -11,9 +11,12 @@ _REVEAL = re.compile(r"\b(diga|digam|passe|passa|informe|mostre|revele|envie|for
 _OTHERS_DATA = re.compile(r"(holerite|salario|cpf|dados pessoais|saldo de ferias|endereco|telefone)"
                           r".*\b(outr[oa]s?|colega|alguem|terceir\w*)\b")
 GUARD_DOCS = ("04_seguranca_da_informacao.md", "09_politica_privacidade.md")
+FAQ = "faq_interno.json"
+FAQ_MIN_RELATIVE_SCORE = 0.6  # a FAQ só vira a resposta principal se tiver >= 60% da pontuação do melhor trecho
 
 
 def is_sensitive_request(question: str) -> bool:
+    """Pedido para obter senhas/credenciais ou dados pessoais de outras pessoas."""
     q = normalize(question)
     return bool((_SECRET.search(q) and _REVEAL.search(q)) or _OTHERS_DATA.search(q))
 
@@ -44,15 +47,14 @@ class InternalInfoAgent(BaseAgent):
 
     def extractive_text(self, hits: list[SearchHit], lead: bool = True) -> str:
         """A resposta curada da FAQ vem primeiro (se for relevante); os documentos, como detalhe."""
-        faq = {item.get("id"): item for item in self.kb.json_docs.get("faq_interno.json", [])
-               if isinstance(item, dict)}
-        best = next((h for h in hits if h.chunk.document == "faq_interno.json"
-                     and h.chunk.section in faq and h.score >= hits[0].score * 0.6), None)
+        faq = {item.get("id"): item for item in self.kb.json_docs.get(FAQ, []) if isinstance(item, dict)}
+        best = next((h for h in hits if h.chunk.document == FAQ and h.chunk.section in faq
+                     and h.score >= hits[0].score * FAQ_MIN_RELATIVE_SCORE), None)
         if best is None:
             return super().extractive_text(hits, lead)
         item = faq[best.chunk.section]
         origin = item.get("documento", best.chunk.document)
-        rest = [h for h in hits if h.chunk.document != "faq_interno.json"]
+        rest = [h for h in hits if h.chunk.document != FAQ]
         head = item.get("resposta", "")
         if not any(h.chunk.document == origin for h in rest):
             head += f"\n\nFonte: **{origin}**"

@@ -4,23 +4,28 @@ Perguntas com números (somas, contagens, orçamento, execução, inadimplência
 de forma determinística sobre os CSVs, com `Decimal` — o modelo de linguagem nunca estima
 valores. Perguntas conceituais ("o que é execução orçamentária?") usam RAG sobre
 `indicadores_e_regras.json`.
+
+Fluxo de `answer`: interpreta a pergunta em `Filters` (tipo, status, período, departamento,
+categoria, centro de custo) e escolhe uma operação pelo vocabulário da pergunta.
 """
 from __future__ import annotations
 
 import calendar
 import re
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 
-from app.agents.base import BaseAgent, brl
+from app.agents.base import EXCERPT_CHARS, BaseAgent, brl, summarize_ids
 from app.models.schemas import AgentAnswer, Source
 from app.services.retrieval_service import normalize
 
 LANC = "lancamentos_financeiros.csv"
 ORC = "orcamento_mensal.csv"
 REGRAS = "indicadores_e_regras.json"
+
+# ---------------------------------------------------------------- vocabulário de período
 
 MONTHS = {"janeiro": 1, "fevereiro": 2, "marco": 3, "abril": 4, "maio": 5, "junho": 6,
           "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10, "novembro": 11, "dezembro": 12}
@@ -29,6 +34,8 @@ _MONTH_RE = re.compile(r"\b(" + "|".join(sorted(MONTHS, key=len, reverse=True)) 
 _ORD = {"1": 1, "primeiro": 1, "2": 2, "segundo": 2, "3": 3, "terceiro": 3, "4": 4, "quarto": 4}
 _QUARTER_RE = re.compile(r"\b(1|2|3|4|primeiro|segundo|terceiro|quarto)\s*[oº°]?\s*trimestre")
 _SEMESTER_RE = re.compile(r"\b(1|2|primeiro|segundo)\s*[oº°]?\s*semestre")
+
+# ---------------------------------------------------------------- vocabulário de filtros
 
 CATEGORY_ALIASES = {
     "Salários e encargos": r"salario|folha|encargo",
@@ -42,10 +49,35 @@ CATEGORY_ALIASES = {
     "Impostos e taxas": r"imposto|taxa|tributo",
     "Marketing": r"categoria\W+(de\s+)?marketing|marketing\W+como categoria",
 }
+_REVENUE_RE = re.compile(r"receita|faturamento|recebi|recebiveis")
+_EXPENSE_RE = re.compile(r"despesa|gast[oa]|gastou|gastamos|custo|saida")
+_PAID_RE = re.compile(r"\bpag[oa]s?\b|efetivamente pag|quitad|liquidad")
+_PENDING_RE = re.compile(r"pendente")
+_LATE_RE = re.compile(r"atrasad|vencid")
+_COST_CENTER_RE = re.compile(r"\bcc\s?-?(\d00)\b")
+# "financeiro" só conta como departamento se dito explicitamente (a palavra é comum nas perguntas).
+_FINANCE_DEPT_RE = re.compile(r"(departamento|area|setor|equipe|time)\s+(de\s+|do\s+)?financeiro")
+
+# ---------------------------------------------------------------- vocabulário de operações
+
+_DEFINITION_RE = re.compile(r"o que (e|sao|significa)|defini|como (e|sao) calculad|como calcul|criterio|regras? de calculo")
+_BUDGET_RE = re.compile(r"orcament|orcad")
+_EXECUTION_RE = re.compile(r"execuc|executad|realizad")
+_RANKING_RE = re.compile(r"\b(maior|menor|ranking|qual departamento|qual area|quais departamentos)\b")
+_DEFAULT_RATE_RE = re.compile(r"inadimpl")
+_METRIC_RE = re.compile(r"quant|total|soma|valor|maior|menor|\bpor\b|media|gast|receita|despesa")
+_GROUP_BY_RE = re.compile(r"\bpor (departamento|categoria|centro de custo|status|mes)\b")
+_EXTREME_RE = re.compile(r"\b(maior|menor)\b")
+_SMALLEST_RE = re.compile(r"\bmenor\b")
+_COUNT_RE = re.compile(r"quantos|quantidade|numero de")
+_HOW_MUCH_RE = re.compile(r"quanto (foi|e|custou|gast)")
+
+GROUP_COLUMNS = {"departamento": "departamento", "categoria": "categoria",
+                 "centro de custo": "centro_custo", "status": "status"}  # "mes" agrupa por AAAA-MM
 
 
 class Clarify(Exception):
-    pass
+    """A pergunta precisa de um dado que falta (ex.: o ano). A mensagem vai para o usuário."""
 
 
 @dataclass
@@ -74,11 +106,13 @@ class Filters:
         return f"de {self.start:%d/%m/%Y} a {self.end:%d/%m/%Y}"
 
 
-def _month_end(y: int, m: int) -> date:
-    return date(y, m, calendar.monthrange(y, m)[1])
+def _month_end(year: int, month: int) -> date:
+    return date(year, month, calendar.monthrange(year, month)[1])
 
 
 def parse_period(q: str) -> tuple[date | None, date | None]:
+    """Período citado no texto normalizado: trimestre, semestre, meses e/ou anos.
+    Sem período, devolve (None, None). Mês, trimestre ou semestre sem ano gera `Clarify`."""
     years = [int(y) for y in re.findall(r"\b(20\d{2})\b", q)]
     months = [MONTHS[m] for m in _MONTH_RE.findall(q)]
     quarter, semester = _QUARTER_RE.search(q), _SEMESTER_RE.search(q)
@@ -100,48 +134,70 @@ def parse_period(q: str) -> tuple[date | None, date | None]:
     return None, None
 
 
+def sum_decimal(rows: list[dict], column: str) -> Decimal:
+    """Soma uma coluna monetária convertendo para Decimal (nunca float)."""
+    return sum((Decimal(r[column]) for r in rows), Decimal("0"))
+
+
+def format_percent(value: Decimal) -> str:
+    """Decimal("28.45") -> "28,45" (o símbolo % fica no texto da resposta)."""
+    return str(value).replace(".", ",")
+
+
 class FinancialAgent(BaseAgent):
     id = "financeiro"
     name = "Agente Financeiro"
     description = ("Calcula e explica receitas, despesas, orçamento, execução orçamentária e "
                    "inadimplência a partir dos lançamentos e orçamentos da base financeira.")
 
-    # ------------------------------------------------------------ parsing
+    # ------------------------------------------------------------ interpretação da pergunta
 
     def _departments(self) -> list[str]:
         return sorted({r["departamento"] for r in self.kb.tables.get(ORC, [])})
 
-    def parse_filters(self, q: str) -> Filters:
-        f = Filters()
-        has_rec = re.search(r"receita|faturamento|recebi|recebiveis", q)
-        has_desp = re.search(r"despesa|gast[oa]|gastou|gastamos|custo|saida", q)
-        f.tipo = "Receita" if has_rec and not has_desp else "Despesa" if has_desp and not has_rec else None
-        if re.search(r"\bpag[oa]s?\b|efetivamente pag|quitad|liquidad", q):
-            f.status = "Pago"
-        elif re.search(r"pendente", q):
-            f.status = "Pendente"
-        elif re.search(r"atrasad|vencid", q):
-            f.status = "Atrasado"
-        f.start, f.end = parse_period(q)
-        cc = re.search(r"\bcc\s?-?(\d00)\b", q)
-        f.centro = f"CC{cc.group(1)}" if cc else None
+    def _find_department(self, q: str) -> str | None:
+        found = None  # se mais de um casar, vale o último em ordem alfabética
         for dep in self._departments():
             nd = normalize(dep)
-            if nd == "financeiro":  # "financeiro" só conta como área se dito explicitamente
-                if re.search(r"(departamento|area|setor|equipe|time)\s+(de\s+|do\s+)?financeiro", q):
-                    f.departamento = dep
-            elif nd == "marketing":
-                if re.search(r"\bmarketing\b", q) and "categoria" not in q:
-                    f.departamento = dep
-            elif re.search(rf"\b{nd}\b", q):
-                f.departamento = dep
-        for cat, pattern in CATEGORY_ALIASES.items():
-            if re.search(pattern, q):
-                f.categoria = cat
-                break
+            if nd == "financeiro":
+                matches = bool(_FINANCE_DEPT_RE.search(q))
+            elif nd == "marketing":  # "marketing" também é categoria; vale como área se não houver "categoria"
+                matches = bool(re.search(r"\bmarketing\b", q)) and "categoria" not in q
+            else:
+                matches = bool(re.search(rf"\b{nd}\b", q))
+            if matches:
+                found = dep
+        return found
+
+    @staticmethod
+    def _find_category(q: str) -> str | None:
+        return next((cat for cat, pattern in CATEGORY_ALIASES.items() if re.search(pattern, q)), None)
+
+    def parse_filters(self, q: str) -> Filters:
+        """Filtros a partir do texto já normalizado. Pode levantar `Clarify` (período sem ano)."""
+        f = Filters()
+        has_revenue, has_expense = _REVENUE_RE.search(q), _EXPENSE_RE.search(q)
+        if has_revenue and not has_expense:
+            f.tipo = "Receita"
+        elif has_expense and not has_revenue:
+            f.tipo = "Despesa"
+        if _PAID_RE.search(q):
+            f.status = "Pago"
+        elif _PENDING_RE.search(q):
+            f.status = "Pendente"
+        elif _LATE_RE.search(q):
+            f.status = "Atrasado"
+        f.start, f.end = parse_period(q)
+        cc = _COST_CENTER_RE.search(q)
+        f.centro = f"CC{cc.group(1)}" if cc else None
+        f.departamento = self._find_department(q)
+        f.categoria = self._find_category(q)
         return f
 
+    # ------------------------------------------------------------ consultas aos CSVs
+
     def _filter(self, f: Filters) -> list[dict]:
+        """Lançamentos que atendem aos filtros (período pela data de competência)."""
         rows = []
         for r in self.kb.tables.get(LANC, []):
             d = date.fromisoformat(r["data_competencia"])
@@ -155,6 +211,7 @@ class FinancialAgent(BaseAgent):
         return rows
 
     def _budget(self, f: Filters) -> list[dict]:
+        """Orçamentos mensais no período, departamento e centro de custo dos filtros."""
         out = []
         for r in self.kb.tables.get(ORC, []):
             d = date(int(r["ano"]), int(r["mes"]), 1)
@@ -168,51 +225,55 @@ class FinancialAgent(BaseAgent):
     # ------------------------------------------------------------ fontes
 
     def _rows_source(self, rows: list[dict], f: Filters, doc: str = LANC) -> Source:
-        key = "id_lancamento" if doc == LANC else None
-        ids = [r[key] for r in rows] if key else [f"{r['ano']}-{r['mes']} {r['centro_custo']}" for r in rows]
-        shown = ", ".join(ids[:12]) + (f" (+{len(ids) - 12})" if len(ids) > 12 else "")
+        """Fonte de uma consulta determinística: o filtro aplicado e os registros usados."""
+        if doc == LANC:
+            ids = [r["id_lancamento"] for r in rows]
+        else:
+            ids = [f"{r['ano']}-{r['mes']} {r['centro_custo']}" for r in rows]
         return Source(document=doc, domain=self.id, section="consulta determinística",
-                      excerpt=f"Filtro: {f.describe()}. {len(rows)} registro(s): {shown}")
+                      excerpt=f"Filtro: {f.describe()}. {len(rows)} registro(s): {summarize_ids(ids)}")
 
     def _rule_source(self, keyword: str) -> list[Source]:
+        """Primeiro trecho de indicadores_e_regras.json que contém a palavra-chave."""
         for c in self.kb.chunks.get(self.id, []):
             if c.document == REGRAS and keyword in normalize(c.text):
-                return [Source(document=REGRAS, domain=self.id, section=c.section, excerpt=c.text[:320])]
+                return [Source(document=REGRAS, domain=self.id, section=c.section,
+                               excerpt=c.text[:EXCERPT_CHARS])]
         return []
-
-    def _done(self, text: str, sources: list[Source], status: str = "answered") -> AgentAnswer:
-        return AgentAnswer(answer=text, status=status, sources=sources, mode="deterministic")
 
     # ------------------------------------------------------------ resposta
 
     def answer(self, question: str) -> AgentAnswer:
+        """Escolhe a operação, nesta ordem: definição (RAG) → orçamento (execução, ranking ou
+        total) → inadimplência → RAG se não houver métrica nem filtro → agrupamento → maior/menor
+        → contagem → soma."""
         if LANC not in self.kb.tables:
             return self.not_found("A base de lançamentos financeiros não está carregada.")
         q = normalize(question)
-        if re.search(r"o que (e|sao|significa)|defini|como (e|sao) calculad|como calcul|criterio|regras? de calculo", q):
+        if _DEFINITION_RE.search(q):
             return self.rag_answer(question, docs={REGRAS})
         try:
             f = self.parse_filters(q)
         except Clarify as exc:
             return AgentAnswer(answer=str(exc), status="clarification", mode="deterministic")
 
-        if re.search(r"orcament|orcad", q):
-            if re.search(r"execuc|executad|realizad", q):
+        if _BUDGET_RE.search(q):
+            if _EXECUTION_RE.search(q):
                 return self.execution(f)
-            if re.search(r"\b(maior|menor|ranking|qual departamento|qual area|quais departamentos)\b", q):
-                return self.budget_rank(f, smallest=bool(re.search(r"\bmenor\b", q)))
+            if _RANKING_RE.search(q):
+                return self.budget_rank(f, smallest=bool(_SMALLEST_RE.search(q)))
             return self.budget_total(f)
-        if re.search(r"inadimpl", q):
+        if _DEFAULT_RATE_RE.search(q):
             return self.default_rate(f)
-        has_metric = re.search(r"quant|total|soma|valor|maior|menor|\bpor\b|media|gast|receita|despesa", q)
-        if not has_metric and not (f.tipo or f.status or f.departamento or f.categoria or f.centro):
+        has_any_filter = f.tipo or f.status or f.departamento or f.categoria or f.centro
+        if not _METRIC_RE.search(q) and not has_any_filter:
             return self.rag_answer(question)
-        group = re.search(r"\bpor (departamento|categoria|centro de custo|status|mes)\b", q)
+        group = _GROUP_BY_RE.search(q)
         if group:
             return self.grouped(f, group.group(1))
-        if re.search(r"\b(maior|menor)\b", q):
-            return self.extreme(f, smallest=bool(re.search(r"\bmenor\b", q)))
-        if re.search(r"quantos|quantidade|numero de", q) and not re.search(r"quanto (foi|e|custou|gast)", q):
+        if _EXTREME_RE.search(q):
+            return self.extreme(f, smallest=bool(_SMALLEST_RE.search(q)))
+        if _COUNT_RE.search(q) and not _HOW_MUCH_RE.search(q):
             return self.count(f)
         return self.total(f, liquid="liquid" in q)
 
@@ -222,70 +283,78 @@ class FinancialAgent(BaseAgent):
             "A base cobre competências de 01/01/2025 a 31/12/2026.")
 
     def total(self, f: Filters, liquid: bool = False) -> AgentAnswer:
+        """Soma por tipo. Sem tipo na pergunta, mostra receitas e despesas separadas."""
         tipos = [f.tipo] if f.tipo else ["Receita", "Despesa"]
         lines, all_rows = [], []
         for tipo in tipos:
-            ff = Filters(**{**f.__dict__, "tipo": tipo})
-            rows = self._filter(ff)
+            rows = self._filter(replace(f, tipo=tipo))
             all_rows += rows
-            total = sum((Decimal(r["valor_brl"]) for r in rows), Decimal("0"))
             label = "Receitas" if tipo == "Receita" else "Despesas"
-            status = f" com status {f.status}" if f.status else (
-                " (todos os status — despesas incorridas)" if tipo == "Despesa" else " (todos os status)")
-            lines.append(f"{label}{status} {f.period_label()}: **{brl(total)}** ({len(rows)} lançamentos).")
+            if f.status:
+                status = f" com status {f.status}"
+            elif tipo == "Despesa":
+                status = " (todos os status — despesas incorridas)"
+            else:
+                status = " (todos os status)"
+            lines.append(f"{label}{status} {f.period_label()}: **{brl(sum_decimal(rows, 'valor_brl'))}** "
+                         f"({len(rows)} lançamentos).")
         if not all_rows:
             return self._empty(f)
         if liquid:
             lines.append("A base não registra deduções de receita; por isso a receita líquida "
                          "coincide com as receitas registradas, conforme a definição do indicador.")
         lines.append(f"Critério: soma de valor_brl em decimal com {f.describe()}.")
-        return self._done("\n".join(lines), [self._rows_source(all_rows, f)] + self._rule_source("somar"))
+        return self.deterministic_answer("\n".join(lines),
+                                         [self._rows_source(all_rows, f)] + self._rule_source("somar"))
 
     def count(self, f: Filters) -> AgentAnswer:
         rows = self._filter(f)
         if not rows:
             return self._empty(f)
-        return self._done(f"Foram encontrados **{len(rows)} lançamentos** {f.period_label()} "
-                          f"(filtro: {f.describe()}).", [self._rows_source(rows, f)])
+        return self.deterministic_answer(
+            f"Foram encontrados **{len(rows)} lançamentos** {f.period_label()} (filtro: {f.describe()}).",
+            [self._rows_source(rows, f)])
 
     def extreme(self, f: Filters, smallest: bool) -> AgentAnswer:
+        """Maior (ou menor) lançamento individual."""
         rows = self._filter(f)
         if not rows:
             return self._empty(f)
         r = (min if smallest else max)(rows, key=lambda x: Decimal(x["valor_brl"]))
         word = "menor" if smallest else "maior"
-        return self._done(
+        return self.deterministic_answer(
             f"O {word} lançamento {f.period_label()} é **{r['id_lancamento']}**: {r['tipo']} de "
             f"**{brl(Decimal(r['valor_brl']))}** ({r['categoria']} — {r['descricao']}), "
             f"departamento {r['departamento']}, competência {r['data_competencia']}, status {r['status']}.",
             [self._rows_source([r], f)])
 
     def grouped(self, f: Filters, by: str) -> AgentAnswer:
+        """Totais por coluna (do maior para o menor) ou por mês (em ordem cronológica)."""
         rows = self._filter(f)
         if not rows:
             return self._empty(f)
-        col = {"departamento": "departamento", "categoria": "categoria",
-               "centro de custo": "centro_custo", "status": "status"}.get(by)
+        col = GROUP_COLUMNS.get(by)
         sums: dict[str, Decimal] = defaultdict(Decimal)
         for r in rows:
             key = r[col] if col else r["data_competencia"][:7]
             sums[key] += Decimal(r["valor_brl"])
-        order = sorted(sums.items(), key=(lambda kv: kv[0]) if not col else (lambda kv: -kv[1]))
+        order = sorted(sums.items(), key=(lambda kv: -kv[1]) if col else (lambda kv: kv[0]))
         lines = [f"Totais por {by} {f.period_label()} (filtro: {f.describe()}):"]
         lines += [f"- {k}: {brl(v)}" for k, v in order]
-        return self._done("\n".join(lines), [self._rows_source(rows, f)])
+        return self.deterministic_answer("\n".join(lines), [self._rows_source(rows, f)])
 
     def budget_total(self, f: Filters) -> AgentAnswer:
         rows = self._budget(f)
         if not rows:
             return self.not_found(f"Não há orçamento registrado para o filtro ({f.describe()}).")
-        total = sum((Decimal(r["orcamento_brl"]) for r in rows), Decimal("0"))
         scope = f.departamento or f.centro or "todos os departamentos"
-        return self._done(f"Orçamento aprovado {f.period_label()} para {scope}: **{brl(total)}** "
-                          f"({len(rows)} registros mensais por centro de custo).",
-                          [self._rows_source(rows, f, ORC)])
+        return self.deterministic_answer(
+            f"Orçamento aprovado {f.period_label()} para {scope}: **{brl(sum_decimal(rows, 'orcamento_brl'))}** "
+            f"({len(rows)} registros mensais por centro de custo).",
+            [self._rows_source(rows, f, ORC)])
 
     def budget_rank(self, f: Filters, smallest: bool) -> AgentAnswer:
+        """Departamentos ordenados pelo orçamento do período (ignora os outros filtros)."""
         rows = self._budget(Filters(start=f.start, end=f.end))
         if not rows:
             return self.not_found(f"Não há orçamento registrado {f.period_label()}.")
@@ -297,36 +366,37 @@ class FinancialAgent(BaseAgent):
         lines = [f"O departamento com {word} orçamento {f.period_label()} é **{order[0][0]}**, "
                  f"com **{brl(order[0][1])}**.", "Comparativo:"]
         lines += [f"- {d}: {brl(v)}" for d, v in order]
-        return self._done("\n".join(lines), [self._rows_source(rows, f, ORC)])
+        return self.deterministic_answer("\n".join(lines), [self._rows_source(rows, f, ORC)])
 
     def execution(self, f: Filters) -> AgentAnswer:
+        """Despesas realizadas (status Pago, salvo outro citado) ÷ orçamento aprovado."""
+        status = f.status or "Pago"
         budget_rows = self._budget(f)
-        spent_rows = self._filter(Filters(**{**f.__dict__, "tipo": "Despesa", "status": f.status or "Pago",
-                                             "categoria": None}))
-        budget = sum((Decimal(r["orcamento_brl"]) for r in budget_rows), Decimal("0"))
+        spent_rows = self._filter(replace(f, tipo="Despesa", status=status, categoria=None))
+        budget = sum_decimal(budget_rows, "orcamento_brl")
         if not budget:
             return self.not_found(f"Não há orçamento registrado para o filtro ({f.describe()}).")
-        spent = sum((Decimal(r["valor_brl"]) for r in spent_rows), Decimal("0"))
+        spent = sum_decimal(spent_rows, "valor_brl")
         pct = (spent / budget * 100).quantize(Decimal("0.01"))
         scope = f.departamento or f.centro or "todos os departamentos"
-        return self._done(
-            f"Execução orçamentária {f.period_label()} ({scope}): **{str(pct).replace('.', ',')}%** — "
-            f"despesas realizadas (status {f.status or 'Pago'}) de {brl(spent)} sobre orçamento aprovado de "
+        return self.deterministic_answer(
+            f"Execução orçamentária {f.period_label()} ({scope}): **{format_percent(pct)}%** — "
+            f"despesas realizadas (status {status}) de {brl(spent)} sobre orçamento aprovado de "
             f"{brl(budget)}.",
-            [self._rows_source(spent_rows, Filters(**{**f.__dict__, "tipo": "Despesa"})),
+            [self._rows_source(spent_rows, replace(f, tipo="Despesa")),
              self._rows_source(budget_rows, f, ORC)] + self._rule_source("execucao orcamentaria"))
 
     def default_rate(self, f: Filters) -> AgentAnswer:
-        rows = self._filter(Filters(**{**f.__dict__, "tipo": "Receita", "status": None}))
+        """Receitas com status Atrasado ÷ total de receitas registradas."""
+        rows = self._filter(replace(f, tipo="Receita", status=None))
         if not rows:
             return self._empty(f)
-        total = sum((Decimal(r["valor_brl"]) for r in rows), Decimal("0"))
+        total = sum_decimal(rows, "valor_brl")
         late = [r for r in rows if r["status"] == "Atrasado"]
-        late_total = sum((Decimal(r["valor_brl"]) for r in late), Decimal("0"))
+        late_total = sum_decimal(late, "valor_brl")
         pct = (late_total / total * 100).quantize(Decimal("0.01")) if total else Decimal("0")
-        return self._done(
-            f"Inadimplência de recebíveis {f.period_label()}: **{str(pct).replace('.', ',')}%** — "
+        return self.deterministic_answer(
+            f"Inadimplência de recebíveis {f.period_label()}: **{format_percent(pct)}%** — "
             f"receitas com status Atrasado de {brl(late_total)} ({len(late)} lançamentos) sobre "
             f"{brl(total)} em receitas registradas ({len(rows)} lançamentos).",
-            [self._rows_source(rows, Filters(**{**f.__dict__, "tipo": "Receita"}))]
-            + self._rule_source("inadimplencia"))
+            [self._rows_source(rows, replace(f, tipo="Receita"))] + self._rule_source("inadimplencia"))

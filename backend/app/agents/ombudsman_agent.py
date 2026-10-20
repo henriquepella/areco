@@ -12,7 +12,7 @@ import re
 from collections import Counter
 from datetime import date
 
-from app.agents.base import BaseAgent
+from app.agents.base import EXCERPT_CHARS, BaseAgent, summarize_ids
 from app.agents.financial_agent import Clarify, parse_period
 from app.models.schemas import AgentAnswer, Source
 from app.services.retrieval_service import normalize
@@ -28,6 +28,17 @@ _REGISTER = re.compile(
     r"(registrar|abrir|fazer|enviar|criar|formalizar|protocolar)\s+(uma?\s+|minha\s+|meu\s+)?"
     r"(nova\s+|novo\s+)?(reclamac|manifestac|denuncia|sugest|elogio|protocolo|queixa)|quero reclamar")
 _COUNT = re.compile(r"\bquant[oa]s\b|numero de|total de|\bpor (status|categoria|prioridade|canal|area)\b")
+_GROUP_BY = re.compile(r"\bpor (status|categoria|prioridade|canal|area)\b")
+_PROTOCOL_WORD = re.compile(r"\bprotocolo\b")
+_RULES_QUESTION = re.compile(r"\bregras?\b|\bprazo\b|orientac|como funciona")
+CHANNELS = ("Portal", "E-mail", "Telefone", "Chat")
+GROUP_COLUMNS = {"canal": "canal_entrada", "area": "area_responsavel"}  # demais: nome da coluna
+# (chave em referencia_ouvidoria.json, palavras que pedem a lista, rótulo da resposta)
+REFERENCE_LISTS = (
+    ("status_validos", r"\bstatus\b|situac", "Status possíveis"),
+    ("prioridades_validas", r"prioridade", "Prioridades possíveis"),
+    ("categorias", r"categoria|tipos? de manifestac", "Categorias de manifestação"),
+)
 
 
 class OmbudsmanAgent(BaseAgent):
@@ -45,25 +56,25 @@ class OmbudsmanAgent(BaseAgent):
         return data if isinstance(data, dict) else {}
 
     def _ref_source(self, key: str) -> list[Source]:
+        """Trecho de referencia_ouvidoria.json correspondente à chave (ex.: "regras")."""
         for c in self.kb.chunks.get(self.id, []):
             if c.document == REF and c.section == key:
-                return [Source(document=REF, domain=self.id, section=key, excerpt=c.text[:320])]
+                return [Source(document=REF, domain=self.id, section=key, excerpt=c.text[:EXCERPT_CHARS])]
         return []
 
-    def _done(self, text: str, sources: list[Source], status: str = "answered") -> AgentAnswer:
-        return AgentAnswer(answer=text, status=status, sources=sources, mode="deterministic")
-
     def answer(self, question: str) -> AgentAnswer:
+        """Ordem: pedido de identidade (recusa) → protocolo → número sem formato → pedido de
+        registro → contagem → listas oficiais → regras → RAG."""
         q = normalize(question)
         if _PERSONAL.search(q):
-            return self._done(
+            return self.deterministic_answer(
                 "Não posso identificar manifestantes. A base de ouvidoria é anonimizada e não "
                 "contém nomes, CPF, e-mail ou telefone; a regra do domínio proíbe inferir a "
                 "identidade de quem abriu a manifestação.", self._ref_source("regras"), "refused")
         m = _PROTO.search(q)
         if m:
             return self.protocol(f"OUV-{int(m.group(1)):04d}")
-        if re.search(r"\bprotocolo\b", q) and re.search(r"\d", q):
+        if _PROTOCOL_WORD.search(q) and re.search(r"\d", q):
             return AgentAnswer(status="clarification", mode="deterministic",
                                answer="Informe o protocolo no formato OUV-NNNN (por exemplo, OUV-0002).")
         if _REGISTER.search(q):
@@ -73,18 +84,15 @@ class OmbudsmanAgent(BaseAgent):
                 return self.count(q)
             except Clarify as exc:
                 return AgentAnswer(answer=str(exc), status="clarification", mode="deterministic")
-        for key, words, label in (
-            ("status_validos", r"\bstatus\b|situac", "Status possíveis"),
-            ("prioridades_validas", r"prioridade", "Prioridades possíveis"),
-            ("categorias", r"categoria|tipos? de manifestac", "Categorias de manifestação"),
-        ):
+        for key, words, label in REFERENCE_LISTS:
             if re.search(words, q) and key in self.ref:
                 values = ", ".join(self.ref[key])
-                return self._done(f"{label} na ouvidoria, conforme a referência do domínio: {values}.",
-                                  self._ref_source(key))
-        if re.search(r"\bregras?\b|\bprazo\b|orientac|como funciona", q) and "regras" in self.ref:
+                return self.deterministic_answer(
+                    f"{label} na ouvidoria, conforme a referência do domínio: {values}.", self._ref_source(key))
+        if _RULES_QUESTION.search(q) and "regras" in self.ref:
             rules = "\n".join(f"- {r}" for r in self.ref["regras"])
-            return self._done(f"Regras documentadas para a ouvidoria:\n{rules}", self._ref_source("regras"))
+            return self.deterministic_answer(f"Regras documentadas para a ouvidoria:\n{rules}",
+                                             self._ref_source("regras"))
         return self.rag_answer(question)
 
     # ------------------------------------------------------------ protocolo
@@ -119,12 +127,13 @@ class OmbudsmanAgent(BaseAgent):
                      "(parâmetro demonstrativo, não prazo legal).")
         excerpt = "; ".join(f"{k}: {v}" for k, v in row.items()
                             if v and k not in {"observacao", "dados_pessoais"})
-        return self._done("\n".join(lines),
-                          [Source(document=MANIF, domain=self.id, section=proto, excerpt=excerpt[:320])])
+        return self.deterministic_answer(
+            "\n".join(lines),
+            [Source(document=MANIF, domain=self.id, section=proto, excerpt=excerpt[:EXCERPT_CHARS])])
 
     def cannot_register(self) -> AgentAnswer:
         channels = sorted({r["canal_entrada"] for r in self.kb.tables.get(MANIF, [])})
-        return self._done(
+        return self.deterministic_answer(
             "Este assistente **não registra** manifestações: não há integração com um sistema "
             "transacional de ouvidoria, então nenhuma reclamação foi registrada e nenhum protocolo "
             "foi gerado. Na base consultada, as manifestações chegam pelos canais "
@@ -134,9 +143,11 @@ class OmbudsmanAgent(BaseAgent):
 
     # ------------------------------------------------------------ contagens
 
-    def count(self, q: str) -> AgentAnswer:
+    def _filter_manifestations(self, q: str) -> tuple[list[dict], list[str]]:
+        """Aplica, em ordem, os filtros citados (status, categoria, prioridade, canal e período
+        de abertura). Devolve as manifestações e a descrição de cada critério."""
         rows = self.kb.tables.get(MANIF, [])
-        crit = []
+        criteria = []
         for field, values in (("status", self.ref.get("status_validos", [])),
                               ("categoria", self.ref.get("categorias", []))):
             for v in values:
@@ -144,30 +155,34 @@ class OmbudsmanAgent(BaseAgent):
                 stem = nv[:max(5, len(nv) - 2)]  # aceita plural/feminino: sugestões, abertas
                 if re.search(rf"\b{re.escape(stem)}", q):
                     rows = [r for r in rows if r[field] == v]
-                    crit.append(f"{field}={v}")
+                    criteria.append(f"{field}={v}")
                     break
         if "prioridade" in q:
             for v in self.ref.get("prioridades_validas", []):
                 if re.search(rf"\b{normalize(v)}\b", q):
                     rows = [r for r in rows if r["prioridade"] == v]
-                    crit.append(f"prioridade={v}")
-        for canal in ("Portal", "E-mail", "Telefone", "Chat"):
-            if re.search(rf"\b{normalize(canal)}\b", q):
-                rows = [r for r in rows if r["canal_entrada"] == canal]
-                crit.append(f"canal={canal}")
-        start, end = parse_period(q)
+                    criteria.append(f"prioridade={v}")
+        for channel in CHANNELS:
+            if re.search(rf"\b{normalize(channel)}\b", q):
+                rows = [r for r in rows if r["canal_entrada"] == channel]
+                criteria.append(f"canal={channel}")
+        start, end = parse_period(q)  # pode levantar Clarify (mês sem ano)
         if start:
             rows = [r for r in rows if start <= date.fromisoformat(r["data_abertura"]) <= end]
-            crit.append(f"data_abertura de {start:%d/%m/%Y} a {end:%d/%m/%Y}")
-        desc = "; ".join(crit) or "todas as manifestações"
-        group = re.search(r"\bpor (status|categoria|prioridade|canal|area)\b", q)
+            criteria.append(f"data_abertura de {start:%d/%m/%Y} a {end:%d/%m/%Y}")
+        return rows, criteria
+
+    def count(self, q: str) -> AgentAnswer:
+        """Quantidade de manifestações filtradas e, se pedido, distribuição "por <campo>"."""
+        rows, criteria = self._filter_manifestations(q)
+        desc = "; ".join(criteria) or "todas as manifestações"
         lines = [f"Foram encontradas **{len(rows)} manifestações** ({desc})."]
+        group = _GROUP_BY.search(q)
         if group and rows:
-            col = {"canal": "canal_entrada", "area": "area_responsavel"}.get(group.group(1), group.group(1))
+            col = GROUP_COLUMNS.get(group.group(1), group.group(1))
             lines += [f"- {k}: {v}" for k, v in Counter(r[col] for r in rows).most_common()]
-        ids = [r["protocolo"] for r in rows]
-        shown = ", ".join(ids[:12]) + (f" (+{len(ids) - 12})" if len(ids) > 12 else "")
-        return self._done("\n".join(lines), [Source(
+        shown = summarize_ids([r["protocolo"] for r in rows])
+        return self.deterministic_answer("\n".join(lines), [Source(
             document=MANIF, domain=self.id, section="consulta determinística",
             excerpt=f"Filtro: {desc}. Protocolos: {shown or 'nenhum'}")],
             "answered" if rows else "not_found")

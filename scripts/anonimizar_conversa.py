@@ -32,10 +32,8 @@ ACCOUNT_DIR_RE = re.compile(r"\bclaude_[a-z0-9]{10,}\b")  # pasta de dados da co
 KEEP_ATTACHMENTS = {"queued_command"}  # mensagens que o usuário enviou durante a execução
 
 
-BANNED_RE: re.Pattern | None = None  # termos da conta pessoal (definidos por --banned)
-
-
-def scrub_text(text: str, user: str) -> str:
+def scrub_text(text: str, user: str, banned: re.Pattern | None = None) -> str:
+    """Aplica as trocas na ordem: lembretes do sistema, e-mails, caminhos, pasta da conta, termos."""
     text = REMINDER_RE.sub("[contexto do sistema removido]", text)
     # E-mails antes dos termos bloqueados: senão "gmail.com" some e o nome antes do @ fica exposto.
     text = EMAIL_RE.sub(lambda m: m.group(0) if m.group(0).lower().endswith(ALLOWED_EMAIL_DOMAINS)
@@ -43,22 +41,23 @@ def scrub_text(text: str, user: str) -> str:
     for rx in HOME_RES:
         text = rx.sub(lambda m: "<HOME>" if m.group(1).lower() == user.lower() else m.group(0), text)
     text = ACCOUNT_DIR_RE.sub("<conta>", text)
-    if BANNED_RE is not None:  # por último: o que sobrar dos termos da conta pessoal
-        text = BANNED_RE.sub("[termo removido]", text)
+    if banned is not None:  # por último: o que sobrar dos termos da conta pessoal
+        text = banned.sub("[termo removido]", text)
     return text
 
 
-def scrub(obj, user: str):
+def scrub(obj, user: str, banned: re.Pattern | None = None):
+    """Aplica `scrub_text` a todas as strings da estrutura (exceto dados base64 de imagens)."""
     if isinstance(obj, str):
-        return scrub_text(obj, user)
+        return scrub_text(obj, user, banned)
     if isinstance(obj, list):
-        return [scrub(x, user) for x in obj]
+        return [scrub(x, user, banned) for x in obj]
     if isinstance(obj, dict):
         if obj.get("type") == "base64":  # dados de imagem: não alterar (evita corromper o arquivo)
-            return {k: (v if k == "data" else scrub(v, user)) for k, v in obj.items()}
+            return {k: (v if k == "data" else scrub(v, user, banned)) for k, v in obj.items()}
         if obj.get("type") == "thinking":
             return {"type": "thinking", "thinking": "[raciocínio interno omitido]"}
-        return {k: scrub(v, user) for k, v in obj.items() if k != "signature"}
+        return {k: scrub(v, user, banned) for k, v in obj.items() if k != "signature"}
     return obj
 
 
@@ -128,15 +127,15 @@ def main() -> int:
     ap.add_argument("--banned", nargs="*", default=[], help="termos que não podem sobrar na saída")
     args = ap.parse_args()
 
-    global BANNED_RE
     terms = args.banned + [args.email.split("@")[0]]  # o nome do e-mail também, se aparecer solto
+    banned = None
     if terms:
         alts = sorted({t for t in terms if t}, key=len, reverse=True)
-        BANNED_RE = re.compile("|".join(re.escape(t) for t in alts), re.IGNORECASE)
+        banned = re.compile("|".join(re.escape(t) for t in alts), re.IGNORECASE)
 
     z = zipfile.ZipFile(args.zip)
     raw = [json.loads(l) for l in z.read("transcript.jsonl").decode("utf-8").splitlines() if l.strip()]
-    entries = [scrub(e, args.user) for e in filter_entries(raw)]
+    entries = [scrub(e, args.user, banned) for e in filter_entries(raw)]
 
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)

@@ -226,6 +226,23 @@ A classificação pode ser testada isoladamente em `POST /api/classify`.
     └── fonte_pacote/             # documentação e SQL que vieram no pacote (não indexados)
 ```
 
+### Onde fazer manutenções
+
+| Quero mudar... | Arquivo | O que procurar |
+|---|---|---|
+| Palavras e pesos que decidem o domínio | `backend/app/agents/orchestrator.py` | `RULES`, `MIN_CONFIDENCE`, `MIN_MARGIN` |
+| Quando uma busca conta como evidência | `backend/app/agents/base.py` | `MIN_SCORE`, `MIN_COVERAGE`, `RELATIVE_CUTOFF` |
+| Regras do prompt enviado ao modelo | `backend/app/agents/base.py` e `extra_rules` de cada agente | `SYSTEM_TEMPLATE` |
+| Novo tipo de pergunta financeira | `backend/app/agents/financial_agent.py` | `answer` (ordem das operações) e as regex `_..._RE` |
+| Filtros e listas da ouvidoria | `backend/app/agents/ombudsman_agent.py` | `_filter_manifestations`, `REFERENCE_LISTS` |
+| Recusa de credenciais e dados de terceiros | `backend/app/agents/internal_info_agent.py` | `is_sensitive_request` |
+| Formatos aceitos e divisão em trechos | `backend/app/services/document_service.py` | `ALLOWED_EXTENSIONS`, `parse_markdown`, `parse_json` |
+| Tokenização e BM25 | `backend/app/services/retrieval_service.py` | `STOPWORDS`, `_stem`, `BM25Index` |
+| Novo provedor de IA | `backend/app/services/llm_service.py` | `SUPPORTED` e um método `_<provedor>` |
+| Campos e mascaramento do log | `backend/app/services/interaction_log.py` | `_MASKS`, `InteractionLog.record` |
+| Variáveis de ambiente | `backend/app/core/config.py` e `.env.example` | `Settings.from_env` |
+| Contratos da API | `backend/app/models/schemas.py` | modelos Pydantic |
+
 ## Execução com Docker
 
 Pré-requisitos: [Docker](https://docs.docker.com/get-docker/) com Docker Compose v2.24+.
