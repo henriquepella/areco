@@ -283,3 +283,12 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   e-mail e caminhos pessoais). O script falha se sobrar algum termo bloqueado. Teste na exportação
   anterior: 938 → 373 entradas; a 1ª execução barrou um ID de pasta da conta (adicionada a troca
   por `<conta>`) e um falso positivo ("gmail" dentro de um padrão de busca de segredos).
+- **Exportação final:** `session-export-1792528276337.zip` (2.008 entradas) → 833 entradas mantidas em
+  `docs/ai_conversations/2026-10-20_claude-code_transcricao_anonimizada.jsonl` + versão legível.
+  Problemas encontrados pela verificação do próprio script e corrigidos: (1) meus comandos de
+  inspeção desta sessão citavam nomes de ferramentas da conta, agora trocados por `[termo removido]`;
+  (2) trocar "gmail.com" antes do e-mail deixava o nome do e-mail exposto, então a ordem foi invertida;
+  (3) a palavra "vaga" aparecia por acaso dentro de dados base64 de imagem, então a verificação passou a
+  ignorar base64 e as imagens não são alteradas; (4) caminhos eram cortados pelo termo bloqueado
+  antes de virar `<HOME>`, então a troca de caminhos passou a vir antes. Resultado final: "nenhum termo
+  proibido encontrado", JSONL válido (833 linhas) e 19/19 imagens decodificáveis.
