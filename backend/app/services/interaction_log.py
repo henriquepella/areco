@@ -84,7 +84,7 @@ class InteractionLog:
         try:
             with self._lock:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
-                with self.path.open("a", encoding="utf-8") as fh:
+                with self.path.open("a", encoding="utf-8", newline="\n") as fh:  # LF também no Windows
                     fh.write(line + "\n")
         except OSError as exc:
             logger.warning("interaction_log_write_failed", extra={"error_type": type(exc).__name__})

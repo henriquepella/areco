@@ -1,0 +1,81 @@
+# Valida o projeto como um avaliador faria: testes + Docker seguindo o README.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  testes:
+    name: Testes e avaliação (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest
+      - run: python -m tests.eval.run_eval
+
+  docker:
+    name: Docker (passo a passo do README)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cp .env.example .env
+        run: cp .env.example .env
+
+      - name: docker compose up --build
+        run: docker compose up -d --build
+
+      - name: Aguardar o healthcheck do container
+        run: |
+          cid=$(docker compose ps -q app)
+          for i in $(seq 1 40); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$cid")
+            echo "tentativa $i: $status"
+            [ "$status" = "healthy" ] && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - name: GET /health
+        run: curl -fsS http://localhost:8000/health | tee health.json && grep -q '"status":"ok"' health.json
+
+      - name: Frontend servido em /
+        run: curl -fsS http://localhost:8000/ | grep -q "Assistente Aurora"
+
+      - name: POST /api/chat (financeiro, valor conferido nos CSVs)
+        run: |
+          curl -fsS -X POST http://localhost:8000/api/chat \
+            -H "Content-Type: application/json" \
+            -d '{"question": "Qual foi a soma de todas as receitas registradas em 2025?"}' | tee chat.json
+          grep -q '275.727,70' chat.json
+          grep -q '"category":"financeiro"' chat.json
+
+      - name: Interações simuladas contra o container
+        run: |
+          docker compose exec -T app python -m tests.eval.simular_interacoes --url http://localhost:8000
+
+      - name: Registro de interações gravado no volume
+        run: |
+          docker compose exec -T app sh -c 'wc -l /app/logs/interacoes.jsonl && head -n 2 /app/logs/interacoes.jsonl'
+          docker compose cp app:/app/logs/interacoes.jsonl ./interacoes.jsonl
+          test "$(wc -l < interacoes.jsonl)" -ge 39
+
+      - name: Testes dentro do container
+        run: docker compose run --rm app python -m pytest
+
+      - name: Logs do container
+        if: always()
+        run: docker compose logs app
+
+      - name: docker compose down
+        if: always()
+        run: docker compose down -v
