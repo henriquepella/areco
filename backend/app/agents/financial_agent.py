@@ -49,9 +49,9 @@ CATEGORY_ALIASES = {
     "Impostos e taxas": r"imposto|taxa|tributo",
     "Marketing": r"categoria\W+(de\s+)?marketing|marketing\W+como categoria",
 }
-_REVENUE_RE = re.compile(r"receita|faturamento|recebi|recebiveis")
+_REVENUE_RE = re.compile(r"receita|faturamento|receb")  # recebido, recebemos, recebíveis
 _EXPENSE_RE = re.compile(r"despesa|gast[oa]|gastou|gastamos|custo|saida")
-_PAID_RE = re.compile(r"\bpag[oa]s?\b|efetivamente pag|quitad|liquidad")
+_PAID_RE = re.compile(r"\bpag(o|a|os|as|amos|ou|aram)\b|efetivamente pag|quitad|liquidad")
 _PENDING_RE = re.compile(r"pendente")
 _LATE_RE = re.compile(r"atrasad|vencid")
 _COST_CENTER_RE = re.compile(r"\bcc\s?-?(\d00)\b")
@@ -110,6 +110,11 @@ def _month_end(year: int, month: int) -> date:
     return date(year, month, calendar.monthrange(year, month)[1])
 
 
+def has_partial_period(q: str) -> bool:
+    """O texto normalizado cita mês, trimestre ou semestre (com ou sem ano)?"""
+    return bool(_MONTH_RE.search(q) or _QUARTER_RE.search(q) or _SEMESTER_RE.search(q))
+
+
 def parse_period(q: str) -> tuple[date | None, date | None]:
     """Período citado no texto normalizado: trimestre, semestre, meses e/ou anos.
     Sem período, devolve (None, None). Mês, trimestre ou semestre sem ano gera `Clarify`."""
@@ -155,7 +160,7 @@ class FinancialAgent(BaseAgent):
     def _departments(self) -> list[str]:
         return sorted({r["departamento"] for r in self.kb.tables.get(ORC, [])})
 
-    def _find_department(self, q: str) -> str | None:
+    def find_department(self, q: str) -> str | None:
         found = None  # se mais de um casar, vale o último em ordem alfabética
         for dep in self._departments():
             nd = normalize(dep)
@@ -170,7 +175,7 @@ class FinancialAgent(BaseAgent):
         return found
 
     @staticmethod
-    def _find_category(q: str) -> str | None:
+    def find_category(q: str) -> str | None:
         return next((cat for cat, pattern in CATEGORY_ALIASES.items() if re.search(pattern, q)), None)
 
     def parse_filters(self, q: str) -> Filters:
@@ -190,8 +195,8 @@ class FinancialAgent(BaseAgent):
         f.start, f.end = parse_period(q)
         cc = _COST_CENTER_RE.search(q)
         f.centro = f"CC{cc.group(1)}" if cc else None
-        f.departamento = self._find_department(q)
-        f.categoria = self._find_category(q)
+        f.departamento = self.find_department(q)
+        f.categoria = self.find_category(q)
         return f
 
     # ------------------------------------------------------------ consultas aos CSVs
@@ -255,7 +260,7 @@ class FinancialAgent(BaseAgent):
         try:
             f = self.parse_filters(q)
         except Clarify as exc:
-            return AgentAnswer(answer=str(exc), status="clarification", mode="deterministic")
+            return AgentAnswer(answer=str(exc), status="clarification", mode="deterministic", missing="ano")
 
         if _BUDGET_RE.search(q):
             if _EXECUTION_RE.search(q):

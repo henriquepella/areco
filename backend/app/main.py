@@ -7,6 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.agents.assistant import Assistant
+from app.agents.intents import IntentCatalog
 from app.agents.orchestrator import Orchestrator
 from app.api.routes import chat, health
 from app.core.config import Settings
@@ -38,6 +40,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.retriever = Retriever(kb)
         app.state.llm = LLMService(settings)
         app.state.orchestrator = Orchestrator(app.state.retriever, app.state.llm, settings.top_k)
+        catalog = IntentCatalog(kb, app.state.orchestrator.agents["financeiro"].find_department)
+        app.state.assistant = Assistant(app.state.orchestrator, catalog)
         app.state.interactions = InteractionLog(settings.interaction_log_path, app.state.llm.provider)
         logger.info("interaction_log", extra={"enabled": app.state.interactions.enabled})
         status = app.state.retriever.status()

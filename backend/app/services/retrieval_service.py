@@ -22,6 +22,8 @@ STOPWORDS = {
     "sao", "foi", "tem", "ter", "existe", "sobre", "mais", "menos", "muito", "ja", "nao",
     "sim", "the", "of", "favor", "gostaria", "saber", "preciso", "posso", "pode", "devo",
     "fazer", "faco", "faz", "houver", "acontece", "acontecer", "caso", "algum", "alguma",
+    # verbos genéricos de pedido ("como faço para tirar férias?"): não dizem o assunto
+    "tirar", "obter", "conseguir", "consigo", "quero", "queria",
 }
 
 
