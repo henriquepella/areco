@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: assistente-aurora:local
+    env_file:
+      - path: .env
+        required: false   # sem .env, sobe em modo extrativo (LLM_PROVIDER=none)
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      # Bases de conhecimento montadas do host (somente leitura): edite os arquivos e
+      # rode `docker compose restart` para reindexar, sem reconstruir a imagem.
+      - ./backend/app/knowledge_base:/app/backend/app/knowledge_base:ro
+    restart: unless-stopped

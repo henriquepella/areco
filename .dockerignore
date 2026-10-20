@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+venv
+.claude
+.vscode
+.idea
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+.env
+.env.*
+!.env.example
+docs
+*.log
+backend/tests/eval/resultados_*.json
