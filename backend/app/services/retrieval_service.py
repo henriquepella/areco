@@ -21,7 +21,7 @@ STOPWORDS = {
     "minha", "eu", "voce", "ele", "ela", "isso", "esse", "essa", "este", "esta", "ha", "ser",
     "sao", "foi", "tem", "ter", "existe", "sobre", "mais", "menos", "muito", "ja", "nao",
     "sim", "the", "of", "favor", "gostaria", "saber", "preciso", "posso", "pode", "devo",
-    "fazer", "faco", "faz", "houver", "acontece", "acontecer", "caso", "algum", "alguma", "sao",
+    "fazer", "faco", "faz", "houver", "acontece", "acontecer", "caso", "algum", "alguma",
 }
 
 

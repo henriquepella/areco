@@ -12,9 +12,10 @@ from app.services.retrieval_service import Retriever, SearchHit
 logger = logging.getLogger(__name__)
 
 MIN_SCORE = 1.5      # pontuação BM25 mínima do melhor trecho
-MIN_COVERAGE = 0.3   # fração mínima dos termos da pergunta presentes no melhor trecho
+MIN_COVERAGE = 0.3   # fração mínima (ponderada por IDF) dos termos da pergunta no melhor trecho
 RELATIVE_CUTOFF = 0.4  # trechos secundários precisam ter >= 40% da pontuação do melhor
-EXCERPT_CHARS = 320
+EXCERPT_CHARS = 320  # tamanho máximo do trecho exibido como fonte
+MAX_LISTED_IDS = 12  # IDs de registros listados na fonte de uma consulta determinística
 
 NOT_FOUND_TOKEN = "NAO_ENCONTRADO"
 
@@ -49,8 +50,16 @@ def money_values(text: str) -> set[Decimal]:
 
 
 def brl(value: Decimal) -> str:
+    """Formata em reais: Decimal("1234.5") -> "R$ 1.234,50"."""
     s = f"{value:,.2f}"
     return "R$ " + s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def summarize_ids(ids: list[str]) -> str:
+    """Lista os primeiros IDs e indica quantos ficaram de fora: "A, B (+3)"."""
+    shown = ", ".join(ids[:MAX_LISTED_IDS])
+    hidden = len(ids) - MAX_LISTED_IDS
+    return shown + (f" (+{hidden})" if hidden > 0 else "")
 
 
 def hit_to_source(hit: SearchHit) -> Source:
@@ -61,6 +70,9 @@ def hit_to_source(hit: SearchHit) -> Source:
 
 
 class BaseAgent:
+    """Base dos agentes. Cada subclasse define `id` (domínio), `name`, `description`,
+    regras extras para o prompt e, se precisar, sobrescreve `answer`."""
+
     id = ""
     name = ""
     description = ""
@@ -84,6 +96,8 @@ class BaseAgent:
     # ------------------------------------------------------------ recuperação
 
     def relevant_hits(self, question: str, docs: set[str] | None = None) -> list[SearchHit]:
+        """Trechos do domínio com evidência suficiente (vazio se o melhor trecho for fraco).
+        `docs` restringe a busca a alguns arquivos."""
         hits = self.retriever.search(self.id, question, k=self.top_k * 4)
         if docs:
             hits = [h for h in hits if h.chunk.document in docs]
@@ -97,6 +111,11 @@ class BaseAgent:
             "Não encontrei nas bases de conhecimento deste domínio informações suficientes "
             "para responder com segurança. Tente reformular a pergunta com outros termos.")
         return AgentAnswer(answer=msg, status="not_found", sources=[], mode="extractive")
+
+    @staticmethod
+    def deterministic_answer(text: str, sources: list[Source], status: str = "answered") -> AgentAnswer:
+        """Resposta calculada ou consultada diretamente nos dados, sem modelo de linguagem."""
+        return AgentAnswer(answer=text, status=status, sources=sources, mode="deterministic")
 
     @staticmethod
     def _readable_body(hit: SearchHit) -> str:
@@ -132,32 +151,38 @@ class BaseAgent:
 
     def generate(self, question: str, context: list[tuple[str, str | None, str]],
                  sources: list[Source], fallback: str, fallback_mode: str) -> AgentAnswer:
-        """Usa o modelo quando configurado; valida a saída; senão devolve o texto de fallback."""
-        if not self.llm.available:
+        """Usa o modelo quando configurado e valida a saída. Sem modelo, com falha do provedor
+        ou com resposta infiel às fontes, devolve `fallback` (texto montado sem modelo)."""
+
+        def fallback_answer(notice: str | None = None) -> AgentAnswer:
             return AgentAnswer(answer=fallback, status="answered", sources=sources,
-                               mode=fallback_mode)  # modo e /health já indicam a falta de modelo
-        blocks = []
-        for i, (doc, section, text) in enumerate(context, 1):
-            safe = text.replace("<fontes>", "").replace("</fontes>", "")
-            blocks.append(f"[{i}] arquivo: {doc} | seção: {section or '-'}\n{safe}")
-        user = "<fontes>\n" + "\n\n".join(blocks) + "\n</fontes>\n\nPergunta: " + question
+                               mode=fallback_mode, notice=notice)
+
+        if not self.llm.available:
+            return fallback_answer()  # modo e /health já indicam a falta de modelo
         system = SYSTEM_TEMPLATE.format(name=self.name, extra=self.extra_rules)
         try:
-            text = self.llm.complete(system, user)
+            text = self.llm.complete(system, self._build_prompt(question, context))
         except LLMError as exc:
-            return AgentAnswer(answer=fallback, status="answered", sources=sources,
-                               mode=fallback_mode,
-                               notice=f"{exc} Resposta gerada sem o modelo, a partir das fontes.")
+            return fallback_answer(f"{exc} Resposta gerada sem o modelo, a partir das fontes.")
         if NOT_FOUND_TOKEN in text:
             return self.not_found()
         problem = self.validate(text, context)
         if problem:
             logger.warning("llm_answer_rejected", extra={"agent": self.id, "reason": problem})
-            return AgentAnswer(answer=fallback, status="answered", sources=sources,
-                               mode=fallback_mode,
-                               notice="A resposta do modelo foi descartada por não ser fiel às "
-                                      "fontes; exibindo o conteúdo recuperado.")
+            return fallback_answer("A resposta do modelo foi descartada por não ser fiel às "
+                                   "fontes; exibindo o conteúdo recuperado.")
         return AgentAnswer(answer=text, status="answered", sources=sources, mode="llm")
+
+    @staticmethod
+    def _build_prompt(question: str, context: list[tuple[str, str | None, str]]) -> str:
+        """Fontes numeradas entre <fontes>; os delimitadores são removidos do conteúdo para
+        que um documento não consiga "fechar" o bloco e injetar instruções."""
+        blocks = []
+        for i, (doc, section, text) in enumerate(context, 1):
+            safe = text.replace("<fontes>", "").replace("</fontes>", "")
+            blocks.append(f"[{i}] arquivo: {doc} | seção: {section or '-'}\n{safe}")
+        return "<fontes>\n" + "\n\n".join(blocks) + "\n</fontes>\n\nPergunta: " + question
 
     @staticmethod
     def validate(text: str, context: list[tuple[str, str | None, str]]) -> str | None:

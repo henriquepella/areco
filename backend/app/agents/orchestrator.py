@@ -7,8 +7,10 @@ Estratégia híbrida:
 3. Caso contrário: pede esclarecimento (ambígua) ou informa que está fora do escopo.
 
 Confiança (método "rules") = participação do domínio vencedor na soma dos pontos ×
-min(1, pontos do vencedor / 4). Exige também margem mínima sobre o 2º domínio. Classificação feita pelo modelo não tem confiança
-calibrada, então `confidence` é nulo nesse caso.
+min(1, pontos do vencedor / 4). Exige também margem mínima sobre o 2º domínio.
+Classificação feita pelo modelo não tem confiança calibrada, então `confidence` é nulo.
+
+Para ajustar o roteamento, edite `RULES` (padrões e pesos por domínio) e os limiares abaixo.
 """
 from __future__ import annotations
 
@@ -70,11 +72,17 @@ OUT_OF_SCOPE = ("Não consegui identificar um domínio para essa pergunta. Posso
 
 
 def score_question(question: str) -> tuple[dict[str, float], dict[str, list[str]]]:
+    """Pontos por domínio (soma dos pesos das regras que casam) e os trechos que casaram."""
     q = normalize(question)
     scores, matched = {}, {}
     for domain, rules in RULES.items():
-        hits = [m.group(0) for pattern, _ in rules for m in [re.search(pattern, q)] if m]
-        scores[domain] = float(sum(w for pattern, w in rules if re.search(pattern, q)))
+        total, hits = 0, []
+        for pattern, weight in rules:
+            m = re.search(pattern, q)
+            if m:
+                total += weight
+                hits.append(m.group(0))
+        scores[domain] = float(total)
         matched[domain] = hits
     return scores, matched
 
@@ -90,6 +98,7 @@ class Orchestrator:
     # ------------------------------------------------------------ classificação
 
     def classify(self, question: str) -> ClassificationResponse:
+        """Guarda de segurança → regras → modelo (se configurado) → `indefinido`."""
         scores, matched = score_question(question)
         if is_sensitive_request(question):
             # Pedido de credencial/dado de terceiro: sempre tratado pela guarda do agente interno.
@@ -119,6 +128,8 @@ class Orchestrator:
             routing=Routing(method="rules", scores=scores, matched_terms=matched, reason=reason))
 
     def _llm_classify(self, question: str) -> str | None:
+        """Categoria sugerida pelo modelo, ou None se não houver modelo, ele falhar ou
+        responder algo fora das categorias válidas."""
         if not self.llm.available:
             return None
         try:
@@ -132,26 +143,13 @@ class Orchestrator:
     # ------------------------------------------------------------ atendimento
 
     def handle(self, question: str) -> ChatResponse:
+        """Classifica, encaminha ao agente (ou responde como indefinido) e registra no log."""
         started = time.perf_counter()
         c = self.classify(question)
         if c.category == "indefinido":
-            candidates = [d for d, s in c.routing.scores.items() if s > 0]
-            if candidates:
-                status = "clarification"
-                answer = ("Sua pergunta pode se referir a mais de um domínio "
-                          f"({', '.join(candidates)}). Pode detalhar o que precisa?")
-            else:
-                status, answer = "out_of_scope", OUT_OF_SCOPE
-            resp = ChatResponse(question=question, category="indefinido", agent=None, answer=answer,
-                                status=status, sources=[], confidence=c.confidence, mode="none",
-                                routing=c.routing)
+            resp = self._undefined_response(question, c)
         else:
-            agent = self.agents[c.category]
-            result = agent.answer(question)
-            resp = ChatResponse(question=question, category=c.category, agent=agent.name,
-                                answer=result.answer, status=result.status, sources=result.sources,
-                                confidence=c.confidence, mode=result.mode, routing=c.routing,
-                                notice=result.notice)
+            resp = self._agent_response(question, c)
         # Log estruturado sem o texto da pergunta (pode conter dados pessoais).
         logger.info("chat_handled", extra={
             "category": resp.category, "agent": resp.agent, "status": resp.status,
@@ -159,3 +157,25 @@ class Orchestrator:
             "sources": [s.document for s in resp.sources], "question_chars": len(question),
             "latency_ms": round((time.perf_counter() - started) * 1000, 1)})
         return resp
+
+    @staticmethod
+    def _undefined_response(question: str, c: ClassificationResponse) -> ChatResponse:
+        """Algum domínio pontuou → pede detalhes; nenhum pontuou → fora do escopo."""
+        candidates = [d for d, s in c.routing.scores.items() if s > 0]
+        if candidates:
+            status = "clarification"
+            answer = ("Sua pergunta pode se referir a mais de um domínio "
+                      f"({', '.join(candidates)}). Pode detalhar o que precisa?")
+        else:
+            status, answer = "out_of_scope", OUT_OF_SCOPE
+        return ChatResponse(question=question, category="indefinido", agent=None, answer=answer,
+                            status=status, sources=[], confidence=c.confidence, mode="none",
+                            routing=c.routing)
+
+    def _agent_response(self, question: str, c: ClassificationResponse) -> ChatResponse:
+        agent = self.agents[c.category]
+        result = agent.answer(question)
+        return ChatResponse(question=question, category=c.category, agent=agent.name,
+                            answer=result.answer, status=result.status, sources=result.sources,
+                            confidence=c.confidence, mode=result.mode, routing=c.routing,
+                            notice=result.notice)

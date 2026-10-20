@@ -1,3 +1,4 @@
+"""Rotas do assistente: conversa, classificação isolada, agentes e estado da base."""
 import time
 
 from fastapi import APIRouter, HTTPException, Request
@@ -19,12 +20,17 @@ def chat(body: ChatRequest, request: Request) -> ChatResponse:
     _check_length(request, body.question)
     log = request.app.state.interactions
     started = time.perf_counter()
+
+    def elapsed_ms() -> float:
+        return (time.perf_counter() - started) * 1000
+
     try:
         resp = request.app.state.orchestrator.handle(body.question)
     except Exception as exc:
-        log.record(None, body.question, (time.perf_counter() - started) * 1000, type(exc).__name__)
+        # Registra só o tipo do erro; o handler global devolve 500 sem detalhes internos.
+        log.record(None, body.question, elapsed_ms(), type(exc).__name__)
         raise
-    log.record(resp, body.question, (time.perf_counter() - started) * 1000)
+    log.record(resp, body.question, elapsed_ms())
     return resp
 
 

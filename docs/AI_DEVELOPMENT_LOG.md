@@ -292,3 +292,30 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   ignorar base64 e as imagens não são alteradas; (4) caminhos eram cortados pelo termo bloqueado
   antes de virar `<HOME>`, então a troca de caminhos passou a vir antes. Resultado final: "nenhum termo
   proibido encontrado", JSONL válido (833 linhas) e 19/19 imagens decodificáveis.
+
+### 2026-10-20 — Etapa 14: limpeza de código sem mudança de comportamento (branch `refactor/clean-code`)
+- **Prompt (resumo):** skill `/clean-code` com pedido de análise completa e reescrita para legibilidade,
+  com a regra principal de **não alterar o comportamento** (rotas, contratos, cálculos, textos, layout).
+- **Método de equivalência:** antes de qualquer edição foi gravado um "retrato" do comportamento:
+  respostas completas de `/api/chat` e `/api/classify` para 87 perguntas (todos os ramos e status),
+  `/health`, `/api/agents`, `/api/knowledge/status`, 5 casos de erro HTTP, cabeçalhos de segurança, 7
+  cenários com LLM simulado (inclusive os prompts enviados), registro de interações, funções unitárias e
+  avaliação. Também a saída do anonimizador e o HTML final de uma conversa de 8 perguntas no navegador.
+- **Mudanças (só estrutura):** `deterministic_answer` e `summarize_ids` na base (antes duplicados nos
+  agentes financeiro e ouvidoria); `_build_prompt` e um único `fallback_answer` em `generate`; regex do
+  financeiro nomeadas; `sum_decimal`/`format_percent`; `dataclasses.replace` no lugar de
+  `Filters(**{**f.__dict__, ...})`; `_find_department`/`_find_category`; `count` da ouvidoria dividido em
+  `_filter_manifestations` + resumo; `score_question` avaliando cada regex uma vez; `handle` dividido em
+  `_undefined_response`/`_agent_response`; `_optional_path` no config; constantes no lugar de números
+  mágicos (320, 12, 0,6); stopword duplicada removida; variável global do anonimizador virou parâmetro;
+  docstrings curtas nas funções públicas; tabela "Onde fazer manutenções" no README.
+- **Não alterado:** frontend (todas as funções e seletores CSS estão em uso; repetições de uma linha não
+  justificavam mexer na estrutura do DOM), `document_service`, `llm_service`, `interaction_log`, schemas.
+- **Verificação executada:**
+  - `python -m compileall` → ok; `python -m pytest` → `102 passed in 2.14s`.
+  - Retrato depois × antes → **idêntico byte a byte** (367.258 bytes). Teste de mutação: trocar
+    `RELATIVE_CUTOFF` de 0,40 para 0,41 em memória altera 16 linhas do retrato (a comparação detecta mudanças).
+  - Anonimizador: saídas `.jsonl` e `.md` idênticas (`cmp`).
+  - Avaliação: 32/32, 23/23, 27/27, 10/10 (inalterada).
+  - Navegador: mesma sequência de 8 perguntas (com erro de rede simulado) → HTML final idêntico
+    (19.122 caracteres); requisições 200 após o reinício do servidor.

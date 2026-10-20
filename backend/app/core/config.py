@@ -15,6 +15,12 @@ def _int(name: str, default: int) -> int:
         return default
 
 
+def _optional_path(name: str, default: Path) -> Path | None:
+    """Caminho da variável (ou o padrão, se ela não existir). Definida e vazia → None (desligado)."""
+    value = os.getenv(name, str(default)).strip()
+    return Path(value) if value else None
+
+
 @dataclass(frozen=True)
 class Settings:
     llm_provider: str = "none"  # none | anthropic | openai
@@ -44,7 +50,5 @@ class Settings:
             max_question_chars=_int("MAX_QUESTION_CHARS", 1000),
             top_k=_int("RETRIEVAL_TOP_K", 4),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
-            # INTERACTION_LOG_PATH vazio desliga o registro de interações.
-            interaction_log_path=(Path(p) if (p := os.getenv(
-                "INTERACTION_LOG_PATH", str(DEFAULT_INTERACTION_LOG)).strip()) else None),
+            interaction_log_path=_optional_path("INTERACTION_LOG_PATH", DEFAULT_INTERACTION_LOG),
         )
