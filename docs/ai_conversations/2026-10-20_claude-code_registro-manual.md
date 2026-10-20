@@ -25,6 +25,9 @@
    mais bonita, as os textos precisam estar melhores posicionados e quando for feito uma pergunta
    colocar uma leve animacao como se o robo estivesse digitando, como se fosse uma conversa com
    alguem mesmo"*.
+8. Texto do e-mail original do desafio + pergunta: *"Tudo que esta aqui foi incluido?"*
+9. *"Sim, complete tudo: logs de interação do agente (arquivo + exemplo real), exportação da
+   conversa anonimizada no repositório e a seção de status da entrega no README."*
 
 ## O que a IA fez em resposta (resumo)
 
@@ -43,6 +46,10 @@
 | 11 | README, registros de conversa, revisão final. | — | `docs/readme` |
 | 12 | Subiu o app com uvicorn (Docker ausente) e abriu no navegador. | Funcionando em `localhost:8000`. | — |
 | 13 | Nova identidade visual, texto das respostas reorganizado, animação de digitação em 3 fases. Skills `frontend-design` e `animate`. | Corrigidos: digitação desligada por "reduzir movimento" e rAF parado com painel oculto. | `feat/ui-refresh` |
+| 14 | Conferiu cada item do e-mail no repositório público. | Faltavam logs de interação e a exportação da conversa; Docker sem execução. | — |
+| 15 | Registro de interações em JSON Lines + exemplo real com 38 perguntas via HTTP. | Corrigido: mascaramento apagava canais oficiais nas respostas. | `feat/interaction-logs` |
+| 16 | Workflow de CI que segue o README com Docker. | Resultado não conferido: o repositório passou a responder 404 sem login. | `ci/docker-validation` |
+| 17 | Seção "Status da entrega"; anonimização e publicação da exportação desta sessão. | — | `docs/delivery-status`, `docs/conversation-export` |
 
 ## Sugestões consideradas e rejeitadas pela IA
 

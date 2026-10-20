@@ -31,6 +31,7 @@ ferramentas e capturas de tela dos testes no navegador.
 | Requisições internas à API (prompt de sistema completo) | Configuração do ambiente, sem relação com o desafio. |
 | Lembretes injetados pelo sistema nas mensagens → `[contexto do sistema removido]` | Listam ferramentas, conectores e preferências da conta pessoal. |
 | Anexos de ambiente (listas de ferramentas, skills e conectores, contadores de tokens, hooks) | Mesmo motivo. Os anexos com mensagens do usuário (`queued_command`) foram mantidos. |
+| Nomes de ferramentas e conectores da conta pessoal citados em comandos de inspeção → `[termo removido]` | Aparecem só nos comandos usados para auditar a própria exportação; sem relação com o desafio. |
 | Texto de raciocínio interno do modelo → `[raciocínio interno omitido]` | Não faz parte da conversa visível; as decisões estão nas respostas e no diário. |
 | Metadados (pasta de trabalho, branch, IDs de requisição, histórico de arquivos) | Metadados da máquina; o histórico real do código está no Git. |
 
