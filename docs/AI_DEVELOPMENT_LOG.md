@@ -175,3 +175,25 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
     roteamento nos 12 casos oficiais).
   - **Não avaliado:** o modo com modelo de linguagem (sem chave de API nesta sessão). As barreiras
     pós-geração foram testadas só com LLM simulado.
+
+### 2026-10-20 — Etapa 10: documentação e revisão final (branch `docs/readme`)
+- `README.md` completo em português (arquitetura com diagrama Mermaid, execução com e sem Docker,
+  ajustes para Windows, provedor de IA, endpoints, interpretação das fontes, testes, limitações).
+- **Correção:** o exemplo de resposta do README foi conferido contra a API real; a primeira versão
+  trazia pontuação de roteamento errada (12,5 em vez de 8,5) e omitia o termo "quanto". Corrigido.
+- `docs/ai_conversations/`: índice + registro **manual** da sessão (claramente marcado como não
+  sendo exportação original). A exportação nativa do Claude Code gera um zip local com contexto da
+  máquina; ela não foi versionada automaticamente para não publicar dados pessoais (ver o README da pasta).
+- **Revisão de segurança:** `git grep` por padrões de chave, e-mail e caminhos locais nos arquivos
+  versionados → só placeholders (`"..."` no README, `fixture-not-a-key` na fixture). `.env`,
+  `.venv`, `.claude/` e `resultados_*.json` fora do Git.
+- **Testes executados:** `cd backend && python -m pytest` → `88 passed in 1.75s`.
+
+## Limitações conhecidas e melhorias futuras (consolidado)
+- `docker compose up --build` não executado (Docker ausente na máquina de desenvolvimento).
+- Modo com modelo de linguagem não exercitado contra um provedor real (sem chave nesta sessão);
+  coberto apenas com LLM simulado.
+- Sem memória de conversa, autenticação ou rate limiting; registro de manifestações depende de
+  integração futura; PDF/DOCX não suportados (sem anexos nesses formatos).
+- Avaliação pequena e parcialmente usada para ajuste (risco de sobreajuste); fidelidade medida por
+  palavras-chave.
