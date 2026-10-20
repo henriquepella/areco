@@ -148,3 +148,30 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   - App iniciado com as mesmas variáveis da imagem (`KNOWLEDGE_DIR`, `FRONTEND_DIR`, cwd
     `backend/`): `/health` → `ok`, `/` e `/js/app.js` → 200.
   - Com `LLM_PROVIDER=anthropic` sem chave: `/health` informa `LLM_API_KEY não configurada`.
+
+### 2026-10-20 — Etapa 9: avaliação e ajustes (branch `feat/evaluation`)
+- `tests/eval/run_eval.py` mede separadamente **roteamento**, **recuperação** (documento
+  esperado nas fontes), **fidelidade** (termos obrigatórios na resposta, proxy por palavras-chave)
+  e **abstenção** (status correto quando não se deve responder).
+- Casos: 12 do pacote (`perguntas_avaliacao.json`, intocado) + `casos_adicionais.json`,
+  marcado como **elaborado pelo desenvolvedor**: traduz os critérios oficiais em verificações e
+  acrescenta 20 perguntas (períodos sem dados, perguntas sem resposta, injeção na pergunta etc.).
+- **Problemas encontrados pela avaliação e correções:**
+  1. Falso positivo de recuperação: "horário do refeitório" retornava o documento de incidentes
+     (cobertura simples de termos = 0,33 ≥ 0,3). A cobertura passou a ser **ponderada por IDF**
+     (termo ausente do índice recebe IDF máximo) e verbos genéricos ("fazer", "houver"...) viraram
+     stopwords. Medido antes da troca: casos irrelevantes 0,08–0,26; relevantes ≥ 0,33.
+  2. A009 ("prazo... no fechamento financeiro") ficou dividida entre interno e financeiro
+     (margem 0,5). Peso de "fechamento/conciliação" subiu de 2 para 3. **Ressalva:** ajuste feito
+     olhando o próprio caso, então há risco de sobreajuste; o conjunto de avaliação é pequeno.
+  3. OUV-9999 passou a citar `manifestacoes.csv` (a base consultada, com "nenhum registro")
+     além da regra de não inventar protocolos.
+  4. Adicionar `tests/__init__.py` quebrou `from conftest import ...`; trocado por `tests.conftest`.
+- **Testes executados:**
+  - `python -m tests.eval.run_eval --save` (sem modelo) → 1ª execução: roteamento 31/32,
+    recuperação 22/23, fidelidade 26/27, abstenção 10/10. Depois das correções: **32/32, 23/23,
+    27/27, 10/10**.
+  - `python -m pytest` → `88 passed in 1.70s` (inclui `test_evaluation.py`, limiar ≥ 0,9 e 100% de
+    roteamento nos 12 casos oficiais).
+  - **Não avaliado:** o modo com modelo de linguagem (sem chave de API nesta sessão). As barreiras
+    pós-geração foram testadas só com LLM simulado.

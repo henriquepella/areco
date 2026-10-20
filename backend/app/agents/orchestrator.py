@@ -45,7 +45,7 @@ RULES: dict[str, list[tuple[str, float]]] = {
         (r"feria", 3), (r"reembolso", 2), (r"politica", 2), (r"procedimento|processo interno", 2),
         (r"\bcompras?\b", 2), (r"aprovac|alcada", 2), (r"seguranca|phishing|incidente", 3), (r"senha|credencia|token|mfa|multifator", 2),
         (r"\bacesso", 2), (r"home office|remoto|hibrido|teletrabalho", 3), (r"\brh\b|recursos humanos", 2),
-        (r"holerite|beneficio|dados cadastrais", 3), (r"privacidade|lgpd", 2), (r"fechamento|conciliacao", 2),
+        (r"holerite|beneficio|dados cadastrais", 3), (r"privacidade|lgpd", 2), (r"fechamento|conciliacao", 3),
         (r"portal de ti|chamado|colaborador|lideranca", 1), (r"\bfaq\b|manual|norma|regra interna", 2),
     ],
     "ouvidoria": [

@@ -92,8 +92,11 @@ class OmbudsmanAgent(BaseAgent):
     def protocol(self, proto: str) -> AgentAnswer:
         row = next((r for r in self.kb.tables.get(MANIF, []) if r.get("protocolo") == proto), None)
         if row is None:
+            searched = Source(document=MANIF, domain=self.id, section="busca exata por protocolo",
+                              excerpt=f"Nenhum registro com protocolo = {proto} entre "
+                                      f"{len(self.kb.tables.get(MANIF, []))} manifestações.")
             return AgentAnswer(
-                status="not_found", mode="deterministic", sources=self._ref_source("regras"),
+                status="not_found", mode="deterministic", sources=[searched] + self._ref_source("regras"),
                 answer=(f"Não encontrei o protocolo **{proto}** na base de manifestações. Não é "
                         "possível confirmar que ele exista nem informar status. Verifique o número "
                         "(formato OUV-NNNN)."))
