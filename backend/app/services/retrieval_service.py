@@ -21,6 +21,7 @@ STOPWORDS = {
     "minha", "eu", "voce", "ele", "ela", "isso", "esse", "essa", "este", "esta", "ha", "ser",
     "sao", "foi", "tem", "ter", "existe", "sobre", "mais", "menos", "muito", "ja", "nao",
     "sim", "the", "of", "favor", "gostaria", "saber", "preciso", "posso", "pode", "devo",
+    "fazer", "faco", "faz", "houver", "acontece", "acontecer", "caso", "algum", "alguma", "sao",
 }
 
 
@@ -48,7 +49,7 @@ def tokenize(text: str) -> list[str]:
 class SearchHit:
     chunk: Chunk
     score: float
-    coverage: float  # fração dos termos da pergunta presentes no trecho
+    coverage: float  # fração do peso IDF dos termos da pergunta presente no trecho
 
 
 class BM25Index:
@@ -61,11 +62,14 @@ class BM25Index:
         df = Counter(term for d in self.docs for term in d)
         n = len(self.docs)
         self.idf = {t: math.log(1 + (n - f + 0.5) / (f + 0.5)) for t, f in df.items()}
+        # Termo ausente do índice recebe o IDF máximo: pesa contra a cobertura.
+        self.unseen_idf = math.log(1 + (n + 0.5) / 0.5)
 
     def search(self, query: str, k: int = 4) -> list[SearchHit]:
         terms = set(tokenize(query))
         if not terms or not self.docs:
             return []
+        total_idf = sum(self.idf.get(t, self.unseen_idf) for t in terms)
         hits = []
         for chunk, tf, dl in zip(self.chunks, self.docs, self.lengths):
             matched = [t for t in terms if t in tf]
@@ -76,7 +80,8 @@ class BM25Index:
                 f = tf[t]
                 score += self.idf[t] * f * (self.k1 + 1) / (
                     f + self.k1 * (1 - self.b + self.b * dl / self.avgdl))
-            hits.append(SearchHit(chunk, round(score, 4), round(len(matched) / len(terms), 3)))
+            coverage = sum(self.idf[t] for t in matched) / total_idf
+            hits.append(SearchHit(chunk, round(score, 4), round(coverage, 3)))
         hits.sort(key=lambda h: h.score, reverse=True)
         return hits[:k]
 

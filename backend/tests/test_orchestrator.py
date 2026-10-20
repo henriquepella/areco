@@ -1,6 +1,6 @@
 """Classificação (isolada da geração) e encaminhamento para os agentes."""
 import pytest
-from conftest import FakeLLM
+from tests.conftest import FakeLLM
 
 from app.agents.orchestrator import Orchestrator, score_question
 

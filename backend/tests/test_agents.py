@@ -1,6 +1,6 @@
 """Agentes especializados. Valores esperados foram calculados sobre os CSVs fornecidos."""
 import pytest
-from conftest import FakeLLM
+from tests.conftest import FakeLLM
 
 from app.agents.financial_agent import FinancialAgent
 from app.agents.internal_info_agent import InternalInfoAgent, is_sensitive_request
