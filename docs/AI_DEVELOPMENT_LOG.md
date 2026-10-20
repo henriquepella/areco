@@ -61,3 +61,29 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   ("status" aparece em todas as linhas do CSV, IDF baixo). Será resolvida no agente de
   ouvidoria lendo os campos enumerados de `referencia_ouvidoria.json` diretamente.
 - **Testes executados:** `cd backend && python -m pytest` → `13 passed in 0.15s`.
+
+### 2026-10-20 — Etapa 4: provedor de IA e agentes especializados (branch `feat/agents`)
+- **Ferramenta:** Claude Code; consultada a skill `claude-api` para IDs de modelo e uso do SDK.
+  Modelo padrão para `LLM_PROVIDER=anthropic`: `claude-opus-5-5` (configurável por `LLM_MODEL`).
+- **Decisões:**
+  - **Financeiro determinístico:** somas, contagens, orçamento, execução e inadimplência são
+    calculadas com `Decimal` sobre os CSVs, seguindo `indicadores_e_regras.json`
+    (competência, não vencimento; "pagas" = status Pago; sem status = despesas incorridas).
+    O modelo **não** participa desses cálculos; só perguntas conceituais usam RAG + modelo.
+    Sugestão de "deixar o LLM gerar SQL" **rejeitada** (o próprio pacote desaconselha SQL arbitrário).
+  - **Barreiras pós-geração:** a resposta do modelo é descartada (volta ao modo extrativo)
+    se citar arquivo não fornecido ou trouxer valor monetário ausente das fontes; o token
+    `NAO_ENCONTRADO` vira resposta de "sem evidência". As fontes exibidas vêm sempre da
+    recuperação, nunca do texto do modelo.
+  - **Prompt injection:** trechos vão entre `<fontes>` (delimitadores removidos do conteúdo) e o
+    prompt de sistema manda ignorar instruções contidas neles.
+  - **Ouvidoria:** protocolo por correspondência exata (normaliza `ouv 2` → `OUV-0002`); listas
+    oficiais lidas de `referencia_ouvidoria.json`; pedido de registro → explica que não há
+    integração transacional e que nenhum protocolo foi gerado; pedidos de identidade → recusa.
+  - **Guarda de segurança (T010):** pedidos de senha/credencial/dados de terceiros são recusados
+    pelo agente de informações internas, citando `04_seguranca_da_informacao.md` e `09_politica_privacidade.md`.
+  - Abreviações de mês ("dez", "mar") removidas do parser após perceber colisão com palavras comuns.
+- **Valores de referência conferidos à parte (script Python sobre os CSVs):** T006 = R$ 305.937,01
+  (27 lançamentos); T007 = Tecnologia, R$ 43.229,05; T011 = R$ 275.727,70 (6 lançamentos).
+- **Testes executados:** `cd backend && python -m pytest` → `43 passed in 1.49s`
+  (inclui LLM simulado: resposta fiel, citação inventada, valor inventado, falha de rede).
