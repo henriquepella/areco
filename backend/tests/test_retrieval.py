@@ -12,11 +12,6 @@ from app.services.retrieval_service import Retriever, tokenize
 REAL_KB = Path(__file__).resolve().parents[1] / "app" / "knowledge_base"
 
 
-@pytest.fixture(scope="module")
-def retriever():
-    return Retriever(load_knowledge_base(REAL_KB))
-
-
 def _write(root: Path, rel: str, content: str | bytes):
     p = root / rel
     p.parent.mkdir(parents=True, exist_ok=True)
