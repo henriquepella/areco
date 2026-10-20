@@ -28,6 +28,9 @@
 8. Texto do e-mail original do desafio + pergunta: *"Tudo que esta aqui foi incluido?"*
 9. *"Sim, complete tudo: logs de interação do agente (arquivo + exemplo real), exportação da
    conversa anonimizada no repositório e a seção de status da entrega no README."*
+10. `/clean-code` com pedido de reorganização do código **sem alterar o comportamento**.
+11. Especificação "Implementação do menu inteligente de perguntas — Aurora IA" (interrompida e
+    retomada com *"Continue de onde parou"* e *"Continue"*).
 
 ## O que a IA fez em resposta (resumo)
 
@@ -50,6 +53,8 @@
 | 15 | Registro de interações em JSON Lines + exemplo real com 38 perguntas via HTTP. | Corrigido: mascaramento apagava canais oficiais nas respostas. | `feat/interaction-logs` |
 | 16 | Workflow de CI que segue o README com Docker. | Resultado não conferido: o repositório passou a responder 404 sem login. | `ci/docker-validation` |
 | 17 | Seção "Status da entrega"; anonimização e publicação da exportação desta sessão. | — | `docs/delivery-status`, `docs/conversation-export` |
+| 18 | Limpeza de código comprovada por retrato byte a byte das saídas antes/depois e teste de mutação. | 102 testes; retrato idêntico. | `refactor/clean-code` |
+| 19 | Menu inteligente: `/api/assist`, `/api/suggestions`, catálogo de intenções gerado das bases, interface com agentes clicáveis. | 128 testes; 31 sugestões executadas até a resposta. | `feat/menu-inteligente` |
 
 ## Sugestões consideradas e rejeitadas pela IA
 

@@ -319,3 +319,59 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   - Avaliação: 32/32, 23/23, 27/27, 10/10 (inalterada).
   - Navegador: mesma sequência de 8 perguntas (com erro de rede simulado) → HTML final idêntico
     (19.122 caracteres); requisições 200 após o reinício do servidor.
+
+### 2026-10-20 — Etapa 15: menu inteligente de perguntas (branch `feat/menu-inteligente`)
+- **Ferramenta:** Claude Code (Claude Opus 5.5).
+- **Prompt (resumo):** especificação "Implementação do menu inteligente de perguntas — Aurora IA":
+  domínios clicáveis, perguntas sugeridas geradas das bases (não fixas no frontend), pergunta
+  livre com identificação de intenção, confirmação quando ambígua ("Quanto a empresa gastou em
+  janeiro?"), coleta só dos parâmetros faltantes, troca de domínio preservando o texto, 12 testes
+  de aceitação. O pedido foi interrompido uma vez e retomado com "Continue".
+- **Decisões:**
+  - **Endpoint novo `POST /api/assist`** em vez de mudar `/api/chat`: o contrato antigo, a avaliação e
+    os testes continuam valendo, e a camada nova reutiliza orquestrador e agentes (nenhum cálculo
+    ou recuperação duplicados). **Aceita.**
+  - **Estado no cliente** (`follow_up` com intenção e parâmetros, devolvidos na mensagem seguinte) em
+    vez de sessão no servidor: sem armazenamento novo e sem dados de conversa no backend. **Aceita.**
+  - **Catálogo de intenções gerado dos dados** (`agents/intents.py`): cada sugestão tem condição de
+    disponibilidade (arquivo, coluna e registros), e as opções dos parâmetros saem dos CSV/JSON.
+    Uma lista fixa de perguntas no frontend foi **rejeitada** (a especificação proíbe); as 6 perguntas
+    que estavam no `index.html` foram removidas.
+  - **Detecção de "pergunta conhecida com parâmetro faltando"** por gatilho (regex) e não por
+    semelhança BM25: a semelhança sozinha pedia parâmetros desnecessários ("Quantas manifestações
+    existem?" casava com "...com determinado status?"). BM25 ficou só para sugerir perguntas
+    parecidas quando não há evidência. **Modificada** em relação à ideia inicial.
+  - Período parcial: mês sem ano vira `periodo_parcial`; a resposta seguinte com o ano completa
+    ("janeiro" + "2026" → "janeiro de 2026"). A frase final é reconstruída em palavras que o
+    `parse_period` existente entende.
+  - Agentes ganharam o campo interno `missing` (`ano`/`protocolo`) no `AgentAnswer`, para a conversa
+    transformar o pedido de esclarecimento do agente num parâmetro pendente. Não aparece em `/api/chat`.
+  - Sinônimos: "pagamos/pagou/pagaram", "recebemos/recebido" e verbos genéricos ("tirar", "obter",
+    "conseguir", "quero") como stopwords, para entender frases equivalentes.
+- **Problemas e correções:**
+  1. "Como faço para tirar férias?" não era entendida: "tirar" (fora do índice) baixava a cobertura
+     IDF para 0,29 (< 0,3). Verbos genéricos viraram stopwords; avaliação antiga continuou 32/32, 23/23, 27/27, 10/10.
+  2. No navegador, toda pergunta mostrava "Não foi possível conectar". O `POST` nem saía: o
+     parâmetro novo `body` de `request()` colidia com `let body` no mesmo bloco (zona morta
+     temporal → `ReferenceError` capturado pelo `catch` de rede). `node --check` não detecta; o
+     diagnóstico foi interceptar o `fetch` na página. Parâmetro renomeado.
+  3. "Nenhuma pergunta parecida" deixava a resposta sem alternativas; agora mostra as primeiras
+     sugestões do agente.
+  4. No celular, a linha "Conversa com o Agente…" quebrava o ícone e o texto em linhas separadas;
+     `flex-wrap` removido. O navegador do painel usava o CSS em cache; foi preciso forçar o recarregamento.
+  5. Durante a verificação o servidor foi parado pelo usuário (painel fechado); foi reiniciado para concluir os testes.
+- **Testes executados:**
+  - `python -m pytest` → `128 passed in 3.70s` (25 novos em `tests/test_assistant.py`: sugestões
+    vindas das bases, nenhuma pergunta fixa no frontend, **cada uma das 31 sugestões executada até
+    `answered` com fontes**, opções dos parâmetros iguais aos dados, período → só o ano, confirmação
+    de gasto ambíguo mantendo departamento, protocolo pedido/inválido/inexistente/existente, troca de
+    domínio preservando o texto, domínio escolhido respeitado, modo automático, pergunta nova no meio
+    da coleta, ano faltando em pergunta livre, guarda de segurança, validação do payload, `/api/chat` inalterado).
+  - `python -m tests.eval.run_eval` → 32/32, 23/23, 27/27, 10/10.
+  - Navegador (1440×900 e 375×812): escolha de agente pelo cartão e pela barra lateral; sugestão →
+    "janeiro" → clique em "2026" → R$ 54.778,07; "Quanto a empresa gastou em janeiro?" → 3 alternativas →
+    "2025" → R$ 134.103,47 (11 lançamentos; conferido à parte com Decimal sobre o CSV); protocolo
+    inválido, OUV-9999 sem invenção; troca de agente; "Trocar agente" → modo automático; faixa de
+    sugestões; sem rolagem horizontal; console sem erros.
+  - **Não verificado no navegador:** a mensagem de falha ao carregar `/api/suggestions` (o código
+    trata o erro, mas não foi possível simular a falha só dessa rota sem alterar o servidor).

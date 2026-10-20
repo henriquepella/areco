@@ -21,6 +21,7 @@ e sempre mostram o domínio usado e as fontes consultadas.
 - [Variáveis de ambiente e provedor de IA](#variáveis-de-ambiente-e-provedor-de-ia)
 - [Bases de conhecimento](#bases-de-conhecimento)
 - [Endpoints](#endpoints)
+- [Menu de perguntas e conversa guiada](#menu-de-perguntas-e-conversa-guiada)
 - [Como interpretar as respostas e as fontes](#como-interpretar-as-respostas-e-as-fontes)
 - [Testes e avaliação](#testes-e-avaliação)
 - [Segurança](#segurança)
@@ -49,7 +50,9 @@ e sempre mostram o domínio usado e as fontes consultadas.
   esclarecimento em perguntas ambíguas e recusa pedidos de credenciais ou dados pessoais.
 - Valores financeiros calculados de forma determinística e conferidos contra os CSVs.
 - Interface web integrada à API, com encaminhamento visível e animação de digitação.
-- 102 testes automatizados e avaliação com métricas separadas, sem chamadas pagas.
+- Menu inteligente: escolha do agente, perguntas sugeridas geradas das bases, confirmação de
+  intenção e pedido só dos dados que faltam (ver [Menu de perguntas](#menu-de-perguntas-e-conversa-guiada)).
+- 128 testes automatizados e avaliação com métricas separadas, sem chamadas pagas.
 - Registro das interações com mascaramento de dados pessoais.
 
 ### O que ficou pendente ou sem verificação
@@ -241,6 +244,8 @@ A classificação pode ser testada isoladamente em `POST /api/classify`.
 | Novo provedor de IA | `backend/app/services/llm_service.py` | `SUPPORTED` e um método `_<provedor>` |
 | Campos e mascaramento do log | `backend/app/services/interaction_log.py` | `_MASKS`, `InteractionLog.record` |
 | Variáveis de ambiente | `backend/app/core/config.py` e `.env.example` | `Settings.from_env` |
+| Perguntas sugeridas e parâmetros pedidos | `backend/app/agents/intents.py` | `_financial`, `_internal`, `_ombudsman` |
+| Confirmações e fluxo da conversa guiada | `backend/app/agents/assistant.py` | `_free_text`, `_confirm_spend`, `SPEND_OPTIONS` |
 | Contratos da API | `backend/app/models/schemas.py` | modelos Pydantic |
 
 ## Execução com Docker
@@ -375,6 +380,8 @@ knowledge_base/
 |---|---|---|
 | `GET` | `/health` | Saúde do serviço, estado do índice e do provedor de IA (sem segredos). |
 | `POST` | `/api/chat` | Pergunta → resposta, categoria, agente, fontes, confiança. |
+| `POST` | `/api/assist` | Conversa guiada usada pela interface: domínio escolhido, confirmação de intenção e parâmetros (ver [Menu de perguntas](#menu-de-perguntas-e-conversa-guiada)). |
+| `GET` | `/api/suggestions` | Perguntas sugeridas por domínio, geradas a partir das bases. |
 | `POST` | `/api/classify` | Só a classificação do orquestrador (sem gerar resposta). |
 | `GET` | `/api/agents` | Agentes disponíveis, funções e arquivos de cada um. |
 | `GET` | `/api/knowledge/status` | Indexação: arquivos e trechos por domínio, rejeitados e ignorados. |
@@ -437,6 +444,53 @@ confiança, status, modo, fontes, resposta e latência.
 
 Logs técnicos do servidor saem em JSON no console (`docker compose logs app`).
 
+## Menu de perguntas e conversa guiada
+
+A interface usa `POST /api/assist`, uma camada de conversa sobre o orquestrador e os agentes.
+Ela só decide **o que perguntar** ao usuário. Toda resposta final vem do agente especializado,
+o mesmo usado por `/api/chat`, com os mesmos cálculos, fontes e recusas.
+
+**Escolha do agente.** Os três agentes da barra lateral (chips no celular) e os cartões da tela
+inicial são clicáveis. Com um agente ativo, o cabeçalho da conversa mostra quem está respondendo
+e o botão **Trocar agente** volta ao modo automático, em que a Aurora identifica o agente de cada
+pergunta. O histórico é mantido ao trocar.
+
+**Perguntas sugeridas geradas das bases** (`GET /api/suggestions`, em `agents/intents.py`):
+
+| Agente | De onde vêm as sugestões | Parâmetros pedidos |
+|---|---|---|
+| Financeiro | Operações executáveis com as colunas e registros dos CSVs (despesas pagas, maior orçamento, receitas do ano, execução por departamento, pendentes, por categoria, orçamento, receitas recebidas) + um "O que significa…" para cada indicador de `indicadores_e_regras.json` | período, ano, departamento (opções: anos, meses e departamentos presentes nos dados) |
+| Informações Internas | Todas as perguntas de `faq_interno.json` + uma sugestão pelo título de cada documento que a FAQ não cobre | — |
+| Ouvidoria | Listas de `referencia_ouvidoria.json` (status, categorias, prioridades, regras) + consultas sobre `manifestacoes.csv` (status de um protocolo, contagem por status, por período, por categoria) | protocolo (sem opções: nunca sugere números), status (opções da referência), período |
+
+Uma sugestão só aparece se o arquivo, a coluna e os registros que ela usa existirem. Um teste
+executa **cada** sugestão até a resposta final e exige `answered` com fontes.
+
+**Como a Aurora trata cada mensagem:**
+
+1. Pedido de senha ou dado de terceiros → mesma recusa de sempre.
+2. Agente ativo e pergunta claramente de outro domínio → oferece trocar de agente, **mantendo o
+   texto da pergunta** (ou continuar no atual).
+3. Sem agente ativo → identifica o domínio. Se a pergunta citar mais de um, pergunta qual agente
+   deve responder; se não citar nenhum, mostra os agentes.
+4. Gasto genérico ("Quanto a empresa gastou em janeiro?") → pergunta se é despesa paga, orçamento
+   aprovado ou receita recebida, guardando o período e o departamento já ditos.
+5. Pergunta conhecida com parâmetro faltando ("Qual o status do protocolo?", "despesas pagas em
+   janeiro") → pede **só** o que falta. Mês sem ano → pede só o ano.
+6. Resposta que não contém o parâmetro → explica e pede de novo; se for uma pergunta nova, trata
+   como pergunta nova.
+7. Pergunta clara → vai direto ao agente, sem confirmação.
+8. Sem evidência → resposta honesta + perguntas parecidas que a base sabe responder.
+
+Exemplo, conferido com os CSVs: "Quanto a empresa gastou em janeiro?" → *Despesas pagas em
+janeiro* → *2026* → "Despesas com status Pago de 01/01/2026 a 31/01/2026: **R$ 54.778,07** (6
+lançamentos). Critério: soma de valor_brl em decimal com tipo=Despesa; status=Pago;
+data_competencia de 2026-01-01 a 2026-01-31."
+
+O estado da conversa (agente ativo e parâmetro pendente) fica no navegador: cada resposta traz
+`follow_up` com a intenção e os parâmetros já informados, e a mensagem seguinte os devolve.
+`/api/chat` não mudou.
+
 ## Como interpretar as respostas e as fontes
 
 A conversa reproduz o caminho da pergunta:
@@ -471,7 +525,7 @@ descartada e o sistema exibe o conteúdo recuperado.
 
 ```bash
 cd backend
-python -m pytest                       # 88 testes, sem rede e sem API paga
+python -m pytest                       # 128 testes, sem rede e sem API paga
 python -m tests.eval.run_eval          # relatório de avaliação
 python -m tests.eval.run_eval --save   # também grava tests/eval/resultados_<data>.json
 ```
@@ -515,8 +569,12 @@ não foi avaliado (não havia chave de API no desenvolvimento).
 
 ## Limitações conhecidas
 
-- **Sem memória de conversa:** cada pergunta é independente. Para responder a um pedido de
-  esclarecimento, reformule a pergunta completa.
+- **Memória de conversa limitada:** a conversa guiada guarda o agente ativo e o parâmetro que está
+  sendo pedido (no navegador). Não há memória de assuntos anteriores: "e em fevereiro?" depois de
+  uma resposta sobre janeiro não é entendido como continuação. `/api/chat` continua sem estado.
+- **Semelhança de perguntas por palavras (BM25 + sinônimos),** não por significado: frases muito
+  diferentes das bases ("trabalhar de casa") podem não ser reconhecidas; nesse caso a Aurora
+  mostra as perguntas que sabe responder.
 - **Classificação por regras** depende de vocabulário. Sinônimos fora da lista caem em
   `indefinido` quando não há modelo configurado.
 - **Parser financeiro** entende meses por extenso, anos, trimestres, semestres, departamentos,

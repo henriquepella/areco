@@ -23,6 +23,7 @@
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z" /><path d="M12 10v4.2M12 16.8v.4" /></symbol>
     <symbol id="i-calc" viewBox="0 0 24 24"><rect x="5.5" y="3.5" width="13" height="17" rx="2" /><path d="M8.5 7.5h7M9 12h.01M12 12h.01M15 12h.01M9 15.5h.01M12 15.5h.01M15 15.5h.01" /></symbol>
     <symbol id="i-quote" viewBox="0 0 24 24"><path d="M6 6.5h12M6 11h12M6 15.5h7.5" /></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M10 6.5 4.5 12l5.5 5.5M5 12h14.5" /></symbol>
     <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 4.5 13.6 10l5.4 2-5.4 2L12 19.5 10.4 14 5 12l5.4-2z" /></symbol>
   </svg>
 
@@ -46,31 +47,37 @@
 
   <div class="layout">
     <aside class="sidebar" aria-label="Agentes disponíveis">
-      <h2 class="side-heading">Quem responde</h2>
-      <ul class="agent-list">
-        <li class="agent" data-domain="financeiro">
-          <span class="avatar" aria-hidden="true"><svg><use href="#i-chart" /></svg></span>
-          <div class="agent-text">
-            <p class="agent-name">Agente Financeiro</p>
-            <p class="agent-desc">Receitas, despesas, orçamento e indicadores</p>
-            <p class="agent-count" hidden></p>
-          </div>
+      <h2 class="side-heading" id="agents-heading">Escolha quem responde</h2>
+      <ul class="agent-list" aria-labelledby="agents-heading">
+        <li>
+          <button type="button" class="agent" data-domain="financeiro" aria-pressed="false">
+            <span class="avatar" aria-hidden="true"><svg><use href="#i-chart" /></svg></span>
+            <span class="agent-text">
+              <span class="agent-name">Agente Financeiro</span>
+              <span class="agent-desc">Receitas, despesas, orçamentos e indicadores</span>
+              <span class="agent-count" hidden></span>
+            </span>
+          </button>
         </li>
-        <li class="agent" data-domain="informacoes_internas">
-          <span class="avatar" aria-hidden="true"><svg><use href="#i-book" /></svg></span>
-          <div class="agent-text">
-            <p class="agent-name">Agente de Informações Internas</p>
-            <p class="agent-desc">Políticas, procedimentos, RH, TI e segurança</p>
-            <p class="agent-count" hidden></p>
-          </div>
+        <li>
+          <button type="button" class="agent" data-domain="informacoes_internas" aria-pressed="false">
+            <span class="avatar" aria-hidden="true"><svg><use href="#i-book" /></svg></span>
+            <span class="agent-text">
+              <span class="agent-name">Agente de Informações Internas</span>
+              <span class="agent-desc">Políticas, procedimentos, RH, TI e segurança</span>
+              <span class="agent-count" hidden></span>
+            </span>
+          </button>
         </li>
-        <li class="agent" data-domain="ouvidoria">
-          <span class="avatar" aria-hidden="true"><svg><use href="#i-chat" /></svg></span>
-          <div class="agent-text">
-            <p class="agent-name">Agente de Ouvidoria</p>
-            <p class="agent-desc">Manifestações, protocolos e status</p>
-            <p class="agent-count" hidden></p>
-          </div>
+        <li>
+          <button type="button" class="agent" data-domain="ouvidoria" aria-pressed="false">
+            <span class="avatar" aria-hidden="true"><svg><use href="#i-chat" /></svg></span>
+            <span class="agent-text">
+              <span class="agent-name">Agente de Ouvidoria</span>
+              <span class="agent-desc">Manifestações, reclamações, protocolos e status</span>
+              <span class="agent-count" hidden></span>
+            </span>
+          </button>
         </li>
       </ul>
 
@@ -84,39 +91,40 @@
     </aside>
 
     <main class="chat" aria-label="Conversa">
+      <header class="chat-head" id="chat-head" data-domain="aurora">
+        <span class="avatar" id="head-avatar" aria-hidden="true"><svg><use href="#i-aurora" /></svg></span>
+        <div class="chat-head-text">
+          <p class="chat-head-name" id="head-name">Aurora</p>
+          <p class="chat-head-desc" id="head-desc">Escolha um agente ou escreva sua pergunta: eu encaminho para quem sabe responder.</p>
+        </div>
+        <button id="change-agent" class="btn-back" type="button" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#i-back" /></svg><span>Trocar agente</span>
+        </button>
+      </header>
+
       <section id="messages" class="messages">
         <div id="thread" class="thread" aria-live="polite" aria-relevant="additions">
           <div id="welcome" class="welcome">
             <span class="welcome-mark" aria-hidden="true"><svg><use href="#i-aurora" /></svg></span>
-            <h2>Olá! O que você precisa saber hoje?</h2>
-            <p>Pergunte sobre finanças, políticas internas ou ouvidoria. A Aurora encaminha a pergunta ao agente certo e mostra de onde veio cada informação.</p>
-
-            <div class="suggest-grid">
-              <section class="suggest-group" data-domain="financeiro" aria-label="Sugestões para o Agente Financeiro">
-                <h3><span class="avatar sm" aria-hidden="true"><svg><use href="#i-chart" /></svg></span>Financeiro</h3>
-                <button class="suggestion" type="button">Quanto foi gasto em despesas pagas de janeiro a março de 2025?</button>
-                <button class="suggestion" type="button">Qual departamento tem maior orçamento em janeiro de 2026?</button>
-              </section>
-              <section class="suggest-group" data-domain="informacoes_internas" aria-label="Sugestões para o Agente de Informações Internas">
-                <h3><span class="avatar sm" aria-hidden="true"><svg><use href="#i-book" /></svg></span>Informações internas</h3>
-                <button class="suggestion" type="button">Como solicito férias?</button>
-                <button class="suggestion" type="button">Quais as aprovações para uma compra de R$ 12.000?</button>
-              </section>
-              <section class="suggest-group" data-domain="ouvidoria" aria-label="Sugestões para o Agente de Ouvidoria">
-                <h3><span class="avatar sm" aria-hidden="true"><svg><use href="#i-chat" /></svg></span>Ouvidoria</h3>
-                <button class="suggestion" type="button">Qual o status do protocolo OUV-0002?</button>
-                <button class="suggestion" type="button">Quais status podem aparecer na ouvidoria?</button>
-              </section>
-            </div>
+            <h2 id="welcome-title">Olá! O que você precisa saber hoje?</h2>
+            <p id="welcome-text">Escolha um agente para ver as perguntas que ele sabe responder com as bases da empresa, ou escreva sua pergunta abaixo.</p>
+            <div id="domain-picker" class="domain-picker"></div>
+            <div id="welcome-suggestions" class="suggest-grid" hidden></div>
+            <p id="suggest-status" class="suggest-status" role="status" hidden></p>
           </div>
         </div>
       </section>
+
+      <div id="suggest-strip" class="suggest-strip" hidden>
+        <span class="strip-label" id="strip-label">Sugestões</span>
+        <div class="strip-items" id="strip-items" role="group" aria-labelledby="strip-label"></div>
+      </div>
 
       <form id="composer" class="composer" novalidate>
         <div class="composer-box">
           <label for="question" class="visually-hidden">Digite sua pergunta</label>
           <textarea id="question" name="question" rows="1" maxlength="1000"
-                    placeholder="Escreva sua pergunta…" autocomplete="off" required></textarea>
+                    placeholder="Digite sua pergunta ou descreva o que você precisa saber..." autocomplete="off" required></textarea>
           <button id="send" class="send" type="submit" aria-label="Enviar pergunta">
             <svg class="icon" aria-hidden="true"><use href="#i-send" /></svg>
           </button>
