@@ -13,4 +13,10 @@ services:
       # Bases de conhecimento montadas do host (somente leitura): edite os arquivos e
       # rode `docker compose restart` para reindexar, sem reconstruir a imagem.
       - ./backend/app/knowledge_base:/app/backend/app/knowledge_base:ro
+      # Registro das interações (JSON Lines). Volume nomeado: o usuário sem privilégios do
+      # container consegue gravar nele em qualquer sistema operacional do host.
+      - interaction_logs:/app/logs
     restart: unless-stopped
+
+volumes:
+  interaction_logs:

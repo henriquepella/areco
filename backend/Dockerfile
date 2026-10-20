@@ -14,13 +14,14 @@ RUN pip install -r backend/requirements.txt
 COPY backend/ backend/
 COPY frontend/ frontend/
 
-# Usuário sem privilégios
-RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
+# Usuário sem privilégios; /app/logs recebe o registro de interações (volume nomeado)
+RUN mkdir -p /app/logs && useradd --create-home --uid 10001 appuser && chown -R appuser /app
 USER appuser
 
 WORKDIR /app/backend
 ENV KNOWLEDGE_DIR=/app/backend/app/knowledge_base \
-    FRONTEND_DIR=/app/frontend
+    FRONTEND_DIR=/app/frontend \
+    INTERACTION_LOG_PATH=/app/logs/interacoes.jsonl
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

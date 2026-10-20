@@ -5,6 +5,7 @@ from pathlib import Path
 
 DEFAULT_KB_DIR = Path(__file__).resolve().parent.parent / "knowledge_base"
 DEFAULT_FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+DEFAULT_INTERACTION_LOG = Path(__file__).resolve().parents[3] / "logs" / "interacoes.jsonl"
 
 
 def _int(name: str, default: int) -> int:
@@ -27,6 +28,8 @@ class Settings:
     max_file_bytes: int = 5 * 1024 * 1024
     top_k: int = 4
     log_level: str = "INFO"
+    # None desliga o registro (padrão em testes); from_env liga por padrão.
+    interaction_log_path: Path | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -41,4 +44,7 @@ class Settings:
             max_question_chars=_int("MAX_QUESTION_CHARS", 1000),
             top_k=_int("RETRIEVAL_TOP_K", 4),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+            # INTERACTION_LOG_PATH vazio desliga o registro de interações.
+            interaction_log_path=(Path(p) if (p := os.getenv(
+                "INTERACTION_LOG_PATH", str(DEFAULT_INTERACTION_LOG)).strip()) else None),
         )

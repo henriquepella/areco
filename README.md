@@ -137,6 +137,7 @@ A classificação pode ser testada isoladamente em `POST /api/classify`.
 └── docs/
     ├── AI_DEVELOPMENT_LOG.md     # diário de desenvolvimento com IA
     ├── ai_conversations/         # registros das conversas com IA
+    ├── logs/                     # exemplo real do registro de interações com o agente
     └── fonte_pacote/             # documentação e SQL que vieram no pacote (não indexados)
 ```
 
@@ -318,6 +319,22 @@ curl -X POST http://localhost:8000/api/chat \
 
 Erros: `422` para entrada inválida ou longa demais, `500` com mensagem genérica (sem detalhes internos).
 
+## Logs das interações
+
+Cada pergunta respondida por `POST /api/chat` vira uma linha em um arquivo **JSON Lines** com a
+pergunta (dados pessoais mascarados), categoria, agente, método e pontos do roteamento,
+confiança, status, modo, fontes, resposta e latência.
+
+- **Exemplo real:** [`docs/logs/interacoes_exemplo.jsonl`](docs/logs/interacoes_exemplo.jsonl),
+  com 38 interações gravadas pela API em execução. Formato e como reproduzir em
+  [`docs/logs/README.md`](docs/logs/README.md).
+- **No Docker:** volume `interaction_logs`. Para copiar:
+  `docker compose cp app:/app/logs/interacoes.jsonl ./interacoes.jsonl`
+- **Local:** `logs/interacoes.jsonl` na raiz do projeto.
+- `INTERACTION_LOG_PATH` muda o caminho; vazio desliga.
+
+Logs técnicos do servidor saem em JSON no console (`docker compose logs app`).
+
 ## Como interpretar as respostas e as fontes
 
 A conversa reproduz o caminho da pergunta:
@@ -388,8 +405,9 @@ não foi avaliado (não havia chave de API no desenvolvimento).
   senhas/chaves na própria pergunta são recusados antes de chegar ao modelo.
 - Barreiras contra invenção: o modelo não decide as fontes; citações e valores são conferidos; o
   agente de ouvidoria nunca afirma registro, encaminhamento ou resolução.
-- Logs JSON sem o texto da pergunta (só tamanho, categoria, agente, fontes e latência) e sem
-  mensagens de erro do provedor.
+- Logs técnicos do console sem o texto da pergunta e sem mensagens de erro do provedor. O
+  registro de interações guarda a pergunta com e-mail, CPF, telefone, números longos e
+  senhas/chaves mascarados, e erros apenas pelo tipo da exceção.
 - Respostas de erro genéricas; CSP `self`, `nosniff`, `frame-ancestors 'none'`; container sem root.
 - O frontend renderiza respostas via DOM (`textContent`), sem `innerHTML` com dados da API.
 
