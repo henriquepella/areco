@@ -21,3 +21,6 @@ Thumbs.db
 # Artefatos gerados
 backend/tests/eval/resultados_*.json
 *.log
+
+# Configuração local do Claude Code
+.claude/
