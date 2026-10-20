@@ -20,6 +20,11 @@
 4. `/git-commit-helper` com o pedido literal: *"para cada parte criada suba um commit em brenchs
    diferentes e va dando merge sem erro"*.
 5. URL do repositório: `https://github.com/henriquepella/areco`.
+6. "rode o projeto".
+7. Captura de tela da interface + pedido: *"Preciso do projeto com uma identidade visual melhor e
+   mais bonita, as os textos precisam estar melhores posicionados e quando for feito uma pergunta
+   colocar uma leve animacao como se o robo estivesse digitando, como se fosse uma conversa com
+   alguem mesmo"*.
 
 ## O que a IA fez em resposta (resumo)
 
@@ -36,6 +41,8 @@
 | 9 | Docker, compose, `.env.example`. **Docker não instalado:** não executado. | YAML validado; app iniciado com as variáveis da imagem. | `feat/docker` |
 | 10 | Avaliação separada por métrica; ajustes guiados por ela. | 32/32, 23/23, 27/27, 10/10 (sem modelo); 88 testes. | `feat/evaluation` |
 | 11 | README, registros de conversa, revisão final. | — | `docs/readme` |
+| 12 | Subiu o app com uvicorn (Docker ausente) e abriu no navegador. | Funcionando em `localhost:8000`. | — |
+| 13 | Nova identidade visual, texto das respostas reorganizado, animação de digitação em 3 fases. Skills `frontend-design` e `animate`. | Corrigidos: digitação desligada por "reduzir movimento" e rAF parado com painel oculto. | `feat/ui-refresh` |
 
 ## Sugestões consideradas e rejeitadas pela IA
 
