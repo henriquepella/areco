@@ -181,8 +181,7 @@ class FinancialAgent(BaseAgent):
         return []
 
     def _done(self, text: str, sources: list[Source], status: str = "answered") -> AgentAnswer:
-        return AgentAnswer(answer=text, status=status, sources=sources, mode="deterministic",
-                           notice="Valores calculados diretamente sobre os CSVs (dados sintéticos).")
+        return AgentAnswer(answer=text, status=status, sources=sources, mode="deterministic")
 
     # ------------------------------------------------------------ resposta
 

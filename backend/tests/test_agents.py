@@ -59,7 +59,8 @@ def test_vacation_extractive(internal):
     r = internal.answer("Como solicito férias?")
     assert r.status == "answered" and r.mode == "extractive"
     assert "30 dias corridos" in r.answer and "portal interno" in r.answer
-    assert r.notice  # informa que o modelo não está configurado
+    assert r.notice is None  # o modo "extractive" e o /health já indicam a falta de modelo
+    assert "Trechos encontrados" not in r.answer and "**01_politica_ferias.md**" in r.answer
 
 
 def test_unanswerable_question_not_found(internal):
