@@ -30,6 +30,8 @@
     refused: ["Pedido recusado", "denied"],
     out_of_scope: ["Fora do escopo", "attention"],
   };
+  const NEEDS = { periodo: "período", ano: "ano", departamento: "departamento", status: "status", protocolo: "protocolo" };
+  const CAPTION = { suggest: "Perguntas que sei responder com a base:", choose_domain: "Escolha um agente:" };
 
   const $ = (sel) => document.querySelector(sel);
   const scroller = $("#messages");
@@ -40,11 +42,30 @@
   const sendBtn = $("#send");
   const counter = $("#counter");
   const statusEl = $("#service-status");
+  const agentButtons = [...document.querySelectorAll(".agent")];
+  const picker = $("#domain-picker");
+  const welcomeTitle = $("#welcome-title");
+  const welcomeText = $("#welcome-text");
+  const welcomeSuggestions = $("#welcome-suggestions");
+  const suggestStatus = $("#suggest-status");
+  const strip = $("#suggest-strip");
+  const stripItems = $("#strip-items");
+  const chatHead = $("#chat-head");
+  const changeAgent = $("#change-agent");
+  const WELCOME_TITLE = welcomeTitle.textContent;
+  const WELCOME_TEXT = welcomeText.textContent;
+  const HEAD_DESC = $("#head-desc").textContent;
 
   let busy = false;
   let controller = null;
   let generation = 0; // muda a cada "Nova conversa": etapas antigas param de agir
   let skipTyping = null;
+  // Estado da conversa guiada (o backend devolve o que precisa em `follow_up`)
+  let activeDomain = null; // null = a Aurora identifica o domínio
+  let pending = null; // { intent, slots } quando a Aurora pediu um parâmetro
+  let lastAgent = null; // para mostrar a linha de encaminhamento só quando o agente muda
+  let suggestions = null; // { domínio: [{ id, label, needs }] } vindo de /api/suggestions
+  let suggestionsFailed = false;
 
   // ---------------------------------------------------------------- utilitários
 
@@ -135,6 +156,7 @@
   function addUser(text) {
     welcome.hidden = true;
     thread.append(el("div", { class: "row row-user" }, el("div", { class: "bubble-user", text })));
+    renderSuggestions(); // a partir da primeira mensagem as sugestões vão para a faixa acima do campo
     scrollToEnd();
   }
 
@@ -163,8 +185,9 @@
   function buildRoute(data) {
     const r = data.routing || {};
     const known = data.category !== "indefinido";
+    const lead = r.method === "context" ? "Conversa com o " : "A Aurora encaminhou ao ";
     const text = known
-      ? [document.createTextNode("A Aurora encaminhou ao "), el("strong", { text: data.agent })]
+      ? [document.createTextNode(lead), el("strong", { text: data.agent })]
       : [document.createTextNode(data.status === "clarification"
         ? "A Aurora encontrou mais de um assunto possível"
         : "A Aurora não identificou um assunto atendido pelos agentes")];
@@ -214,6 +237,8 @@
     if (data.notice) foot.append(el("p", { class: "notice", text: data.notice }));
     const src = sourcesBlock(data.sources);
     if (src) foot.append(src);
+    const choices = choicesBlock(data.follow_up);
+    if (choices) foot.prepend(choices);
     if (foot.childElementCount) bubble.append(foot);
 
     const node = el("article", { class: "row row-bot", "data-domain": domain }, [
@@ -222,18 +247,45 @@
     return { node, answer, bubble, foot };
   }
 
-  function buildError(message, retryQuestion) {
+  /** Alternativas clicáveis de um follow_up (confirmação, parâmetro, troca de agente, sugestões). */
+  function choicesBlock(followUp) {
+    if (!followUp) return null;
+    const box = el("div", { class: "choices" });
+    if (CAPTION[followUp.kind]) box.append(el("p", { class: "choices-caption", text: CAPTION[followUp.kind] }));
+    for (const option of followUp.options || []) {
+      const btn = el("button", { class: "choice", type: "button", text: option.label, "data-domain": option.domain || null });
+      btn.addEventListener("click", () => {
+        if (busy) return;
+        box.querySelectorAll(".choice").forEach((b) => { b.disabled = true; });
+        btn.classList.add("is-chosen");
+        if (option.question) {
+          ask(option.label, { question: option.question, intent: option.intent, slots: option.slots,
+            domain: option.domain || activeDomain, confirmed: option.confirmed });
+        } else {
+          setDomain(option.domain, { announce: true });
+        }
+      });
+      box.append(btn);
+    }
+    if (followUp.kind === "slot") {
+      box.append(el("p", { class: "choice-hint",
+        text: followUp.options && followUp.options.length ? "Ou digite outra resposta no campo abaixo." : "Digite a resposta no campo abaixo." }));
+    }
+    return box.childElementCount ? box : null;
+  }
+
+  function buildError(message, retry) {
     const bubble = el("div", { class: "bubble-bot" }, el("p", { class: "err" }, [icon("i-alert"), el("span", { text: message })]));
     const node = el("div", { class: "row row-bot row-error", "data-domain": "aurora", role: "alert" }, [
       avatar("aurora"),
       el("div", { class: "bot-body" }, [el("div", { class: "bot-head" }, el("span", { class: "bot-name", text: "Aurora" })), bubble]),
     ]);
-    if (retryQuestion) {
+    if (retry) {
       const btn = el("button", { class: "retry", type: "button", text: "Tentar novamente" });
       btn.addEventListener("click", () => {
         if (busy) return;
         node.remove();
-        ask(retryQuestion, { echo: false });
+        retry();
       });
       bubble.append(btn);
     }
@@ -315,14 +367,14 @@
     sendBtn.disabled = value || n === 0 || input.value.length > MAX_CHARS;
   }
 
-  async function request(question) {
+  async function request(message) {
     controller = new AbortController();
     const timer = setTimeout(() => controller.abort("timeout"), TIMEOUT_MS);
     try {
-      const res = await fetch(`${API}/api/chat`, {
+      const res = await fetch(`${API}/api/assist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(message),
         signal: controller.signal,
       });
       let body = null;
@@ -342,10 +394,22 @@
     }
   }
 
-  async function ask(question, { echo = true } = {}) {
+  /**
+   * Envia uma mensagem à conversa guiada. `display` é o que aparece no balão do usuário;
+   * `payload` pode trazer outra pergunta, a intenção, os parâmetros e o domínio a usar.
+   */
+  async function ask(display, payload = {}, { echo = true } = {}) {
     if (busy) return; // impede envios duplicados
     const gen = generation;
-    if (echo) addUser(question);
+    const body = {
+      question: payload.question || display,
+      domain: payload.domain !== undefined ? payload.domain : activeDomain,
+      intent: payload.intent || null,
+      slots: payload.slots || {},
+      confirmed: Boolean(payload.confirmed),
+    };
+    if (echo) addUser(display);
+    pending = null;
     setBusy(true);
 
     const typing = buildTyping();
@@ -354,18 +418,26 @@
 
     try {
       const started = performance.now();
-      const result = await request(question);
+      const result = await request(body);
       await sleep(Math.max(0, THINK_MS - (performance.now() - started)));
       if (gen !== generation || result.reset) return;
 
       if (result.error) {
-        typing.node.replaceWith(buildError(result.error, result.retry ? question : null));
+        const retry = result.retry ? () => ask(display, body, { echo: false }) : null;
+        typing.node.replaceWith(buildError(result.error, retry));
         scrollToEnd();
         return;
       }
 
       const data = result.data;
-      thread.insertBefore(buildRoute(data), typing.node);
+      const autoRouted = ["rules", "llm", "guard"].includes(data.routing && data.routing.method);
+      if (autoRouted || data.agent !== lastAgent || data.category === "indefinido") {
+        thread.insertBefore(buildRoute(data), typing.node);
+      }
+      lastAgent = data.agent;
+      if (data.active_domain && data.active_domain !== activeDomain) setDomain(data.active_domain);
+      const fu = data.follow_up;
+      if (fu && fu.kind === "slot") pending = { intent: fu.intent, slots: fu.slots || {} };
       if (data.category !== "indefinido") {
         typing.handOff(data.category, data.agent);
         scrollToEnd();
@@ -390,7 +462,9 @@
     if (!q || busy || q.length > MAX_CHARS) return;
     input.value = "";
     updateInput();
-    ask(q);
+    // Com um parâmetro pendente, a mensagem digitada é a resposta (o backend reconhece se for
+    // uma pergunta nova).
+    ask(q, pending ? { intent: pending.intent, slots: pending.slots } : {});
   });
 
   input.addEventListener("keydown", (e) => {
@@ -414,8 +488,121 @@
   }
   input.addEventListener("input", updateInput);
 
-  document.querySelectorAll(".suggestion").forEach((btn) =>
-    btn.addEventListener("click", () => ask(btn.textContent.trim())));
+  // ---------------------------------------------------------------- domínio ativo e sugestões
+
+  const agentInfo = (domain) => {
+    const btn = agentButtons.find((b) => b.dataset.domain === domain);
+    return btn
+      ? { name: btn.querySelector(".agent-name").textContent, desc: btn.querySelector(".agent-desc").textContent }
+      : { name: "Aurora", desc: HEAD_DESC };
+  };
+
+  /** Troca o agente ativo sem apagar o histórico. `announce` registra a troca na conversa. */
+  function setDomain(domain, { announce = false } = {}) {
+    const changed = domain !== activeDomain;
+    activeDomain = domain || null;
+    pending = changed ? null : pending;
+    agentButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.domain === activeDomain)));
+    const info = agentInfo(activeDomain);
+    chatHead.dataset.domain = activeDomain || "aurora";
+    $("#head-avatar").replaceWith(Object.assign(avatar(activeDomain || "aurora"), { id: "head-avatar" }));
+    $("#head-name").textContent = info.name;
+    $("#head-desc").textContent = activeDomain ? info.desc : HEAD_DESC;
+    changeAgent.hidden = !activeDomain;
+    if (announce && changed && hasMessages()) {
+      lastAgent = activeDomain ? info.name : null;
+      thread.append(el("div", { class: "route", "data-domain": activeDomain || "aurora" }, [icon("i-route"),
+        el("span", {}, activeDomain
+          ? [document.createTextNode("Agora você está falando com o "), el("strong", { text: info.name })]
+          : [document.createTextNode("A Aurora vai identificar o agente de cada pergunta")])]));
+      scrollToEnd();
+    }
+    renderSuggestions();
+  }
+
+  const hasMessages = () => Boolean(thread.querySelector(".row"));
+
+  function suggestionButton(item, cls) {
+    const btn = el("button", { class: cls, type: "button", "data-domain": item.domain, "data-intent": item.id });
+    btn.append(el("span", { text: item.label }));
+    if (cls === "suggestion" && item.needs.length) {
+      btn.append(el("span", { class: "needs", text: `Você informa: ${item.needs.map((n) => NEEDS[n] || n).join(" e ")}` }));
+    }
+    btn.addEventListener("click", () => {
+      if (busy) return;
+      if (item.domain !== activeDomain) setDomain(item.domain);
+      ask(item.label, { intent: item.id, domain: item.domain });
+    });
+    return btn;
+  }
+
+  /** Boas-vindas (sem mensagens) ou faixa acima do campo (durante a conversa). */
+  function renderSuggestions() {
+    const items = (suggestions && activeDomain && suggestions[activeDomain]) || [];
+    const info = agentInfo(activeDomain);
+    // boas-vindas
+    picker.hidden = Boolean(activeDomain);
+    welcomeTitle.textContent = activeDomain ? info.name : WELCOME_TITLE;
+    welcomeText.textContent = activeDomain
+      ? `${info.desc}. Escolha uma pergunta que a base consegue responder ou escreva a sua.`
+      : WELCOME_TEXT;
+    welcomeSuggestions.replaceChildren(...items.map((i) => suggestionButton(i, "suggestion")));
+    welcomeSuggestions.hidden = !items.length;
+    suggestStatus.hidden = true;
+    if (activeDomain && suggestionsFailed) {
+      suggestStatus.className = "suggest-status error";
+      suggestStatus.textContent = "Não foi possível carregar as perguntas sugeridas. Você ainda pode escrever sua pergunta.";
+      suggestStatus.hidden = false;
+    } else if (activeDomain && !suggestions) {
+      suggestStatus.className = "suggest-status";
+      suggestStatus.textContent = "Carregando perguntas sugeridas…";
+      suggestStatus.hidden = false;
+    }
+    // faixa durante a conversa: perguntas do agente ativo ou atalhos para escolher um agente
+    const chips = activeDomain
+      ? items.map((i) => suggestionButton(i, "chip-btn"))
+      : agentButtons.map((b) => {
+        const chip = el("button", { class: "chip-btn", type: "button", "data-domain": b.dataset.domain,
+          text: `Falar com o ${agentInfo(b.dataset.domain).name}` });
+        chip.addEventListener("click", () => setDomain(b.dataset.domain, { announce: true }));
+        return chip;
+      });
+    stripItems.replaceChildren(...chips);
+    $("#strip-label").textContent = activeDomain ? "Sugestões" : "Agentes";
+    strip.hidden = !hasMessages() || !chips.length;
+  }
+
+  async function loadSuggestions() {
+    try {
+      const res = await fetch(`${API}/api/suggestions`);
+      if (!res.ok) throw new Error(String(res.status));
+      const body = await res.json();
+      suggestions = {};
+      for (const [domain, items] of Object.entries(body.domains || {})) suggestions[domain] = items;
+      suggestionsFailed = false;
+    } catch {
+      suggestionsFailed = true;
+    }
+    renderSuggestions();
+  }
+
+  function buildPicker() {
+    picker.replaceChildren(...agentButtons.map((b) => {
+      const card = el("button", { class: "domain-card", type: "button", "data-domain": b.dataset.domain });
+      card.append(avatar(b.dataset.domain), el("span", { class: "agent-text" }, [
+        el("span", { class: "agent-name", text: agentInfo(b.dataset.domain).name }),
+        el("span", { class: "agent-desc", text: agentInfo(b.dataset.domain).desc }),
+      ]));
+      card.addEventListener("click", () => setDomain(b.dataset.domain));
+      return card;
+    }));
+  }
+
+  agentButtons.forEach((b) => b.addEventListener("click", () => {
+    if (busy) return;
+    setDomain(b.dataset.domain === activeDomain ? null : b.dataset.domain, { announce: true });
+  }));
+  changeAgent.addEventListener("click", () => { if (!busy) setDomain(null, { announce: true }); });
 
   $("#new-chat").addEventListener("click", () => {
     generation += 1;
@@ -423,6 +610,8 @@
     if (skipTyping) skipTyping();
     thread.querySelectorAll(".row, .route").forEach((n) => n.remove());
     welcome.hidden = false;
+    lastAgent = null;
+    setDomain(null);
     input.value = "";
     setBusy(false);
     updateInput();
@@ -469,7 +658,10 @@
     } catch { /* indicador opcional */ }
   }
 
+  buildPicker();
+  setDomain(null);
   updateInput();
   checkHealth();
   loadCounts();
+  loadSuggestions();
 })();

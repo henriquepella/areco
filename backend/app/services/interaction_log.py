@@ -51,12 +51,13 @@ class InteractionLog:
         return self.path is not None
 
     def record(self, resp: ChatResponse | None, question: str, latency_ms: float,
-               error: str | None = None) -> None:
+               error: str | None = None, endpoint: str = "chat") -> None:
         if not self.enabled:
             return
         entry = {
             "id": uuid.uuid4().hex[:12],
             "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "endpoint": endpoint,
             "question": mask_personal_data(question),
             "question_chars": len(question),
             "latency_ms": round(latency_ms, 1),
@@ -78,6 +79,13 @@ class InteractionLog:
                 "answer": answer if len(answer) <= MAX_ANSWER_CHARS else answer[:MAX_ANSWER_CHARS] + "…",
                 "notice": resp.notice,
             })
+            # Conversa guiada (/api/assist): intenção, domínio ativo e o que foi pedido ao usuário.
+            follow_up = getattr(resp, "follow_up", None)
+            for key in ("intent", "active_domain"):
+                if getattr(resp, key, None):
+                    entry[key] = getattr(resp, key)
+            if follow_up is not None:
+                entry["follow_up"] = follow_up.kind
         if error:
             entry.update({"status": "error", "error": error})
         line = json.dumps(entry, ensure_ascii=False)

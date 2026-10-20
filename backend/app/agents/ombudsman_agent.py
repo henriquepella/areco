@@ -75,7 +75,7 @@ class OmbudsmanAgent(BaseAgent):
         if m:
             return self.protocol(f"OUV-{int(m.group(1)):04d}")
         if _PROTOCOL_WORD.search(q) and re.search(r"\d", q):
-            return AgentAnswer(status="clarification", mode="deterministic",
+            return AgentAnswer(status="clarification", mode="deterministic", missing="protocolo",
                                answer="Informe o protocolo no formato OUV-NNNN (por exemplo, OUV-0002).")
         if _REGISTER.search(q):
             return self.cannot_register()
@@ -83,7 +83,7 @@ class OmbudsmanAgent(BaseAgent):
             try:
                 return self.count(q)
             except Clarify as exc:
-                return AgentAnswer(answer=str(exc), status="clarification", mode="deterministic")
+                return AgentAnswer(answer=str(exc), status="clarification", mode="deterministic", missing="ano")
         for key, words, label in REFERENCE_LISTS:
             if re.search(words, q) and key in self.ref:
                 values = ", ".join(self.ref[key])
