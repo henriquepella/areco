@@ -1542,7 +1542,7 @@ Seção escrita. Enquanto o CI termina, analiso a estrutura da exportação para
 
 ### Claude · 2026-10-20 20:29:03
 
-A verificação funcionou e barrou dois resíduos: um identificador de pasta da conta (`claude_pzs8…`) e a palavra "gmail". Vejo onde o "gmail" aparece.
+A verificação funcionou e barrou dois resíduos: um identificador de pasta da conta (`[termo removido]…`) e a palavra "gmail". Vejo onde o "gmail" aparece.
 
 - ferramenta `Bash`: Show context of remaining gmail mentions
 
