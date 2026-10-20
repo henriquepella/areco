@@ -1,3 +1,5 @@
+import time
+
 from fastapi import APIRouter, HTTPException, Request
 
 from app.models.schemas import AgentInfo, ChatRequest, ChatResponse, ClassificationResponse
@@ -15,7 +17,15 @@ def _check_length(request: Request, question: str) -> None:
 def chat(body: ChatRequest, request: Request) -> ChatResponse:
     """Classifica a pergunta, encaminha ao agente e devolve resposta, categoria e fontes."""
     _check_length(request, body.question)
-    return request.app.state.orchestrator.handle(body.question)
+    log = request.app.state.interactions
+    started = time.perf_counter()
+    try:
+        resp = request.app.state.orchestrator.handle(body.question)
+    except Exception as exc:
+        log.record(None, body.question, (time.perf_counter() - started) * 1000, type(exc).__name__)
+        raise
+    log.record(resp, body.question, (time.perf_counter() - started) * 1000)
+    return resp
 
 
 @router.post("/classify", response_model=ClassificationResponse)

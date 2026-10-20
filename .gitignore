@@ -24,3 +24,5 @@ backend/tests/eval/resultados_*.json
 
 # Configuração local do Claude Code
 .claude/
+# Registro de interações gerado em execução (o exemplo versionado fica em docs/logs/)
+/logs/

@@ -12,6 +12,7 @@ from app.api.routes import chat, health
 from app.core.config import Settings
 from app.core.logging_config import setup_logging
 from app.services.document_service import load_knowledge_base
+from app.services.interaction_log import InteractionLog
 from app.services.llm_service import LLMService
 from app.services.retrieval_service import Retriever
 
@@ -37,6 +38,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.retriever = Retriever(kb)
         app.state.llm = LLMService(settings)
         app.state.orchestrator = Orchestrator(app.state.retriever, app.state.llm, settings.top_k)
+        app.state.interactions = InteractionLog(settings.interaction_log_path, app.state.llm.provider)
+        logger.info("interaction_log", extra={"enabled": app.state.interactions.enabled})
         status = app.state.retriever.status()
         logger.info("knowledge_loaded", extra={
             d: v["documents"] for d, v in status["domains"].items()})

@@ -238,3 +238,25 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   de rede simulado mostra "Tentar novamente"; sem rolagem horizontal em 375 px; console sem erros.
 - **Testes executados:** `python -m pytest` → `88 passed in 1.79s`; `python -m tests.eval.run_eval`
   → 32/32, 23/23, 27/27, 10/10.
+
+### 2026-10-20 — Etapa 12: conferência da entrega e registro de interações (branch `feat/interaction-logs`)
+- **Prompt (resumo):** o usuário colou o e-mail original do desafio e perguntou se tudo estava
+  incluído. A IA conferiu item por item no repositório público (arquivos baixados pelo
+  `raw.githubusercontent.com`) e apontou: item 6 (logs das interações com o agente) ausente; item 8
+  (exportação da conversa) só fora do repositório; Docker nunca executado; README sem "status da
+  entrega" nem "o que faria diferente". O usuário pediu para completar tudo, incluindo publicar a
+  conversa anonimizada.
+- **Problema na própria conferência:** um teste com `git cat-file -e origin/main:.env.example`
+  acusou o arquivo como ausente. Era o Git Bash do Windows convertendo o argumento em
+  `origin\main;.env.example`. Confirmado pelo GitHub (HTTP 200) antes de relatar; não era uma falha.
+- **Implementação:** `services/interaction_log.py` grava JSON Lines (pergunta mascarada, categoria,
+  agente, roteamento, status, modo, fontes, resposta, latência). Erros são registrados só pelo tipo
+  da exceção. Falha de escrita gera aviso e não interrompe o chat. No Docker, um volume nomeado
+  `interaction_logs` (não bind mount, para o usuário sem root conseguir gravar em host Linux).
+  Desligado por padrão em `Settings()` (testes) e ligado em `Settings.from_env()`.
+- **Correção:** a 1ª versão mascarava também a resposta e apagava canais oficiais da base
+  (`seguranca@aurora.example`). Passou a mascarar só a pergunta, que é o único texto livre do usuário.
+- **Exemplo real:** uvicorn na porta 8010 com `INTERACTION_LOG_PATH=docs/logs/interacoes_exemplo.jsonl`
+  + `python -m tests.eval.simular_interacoes --url http://localhost:8010` → 38 requisições HTTP, todas
+  200, 38 linhas no arquivo; conferido que CPF/e-mail fictícios não aparecem em claro.
+- **Testes executados:** `python -m pytest` → `102 passed in 1.94s` (14 novos sobre o registro).
