@@ -11,6 +11,7 @@ e sempre mostram o domínio usado e as fontes consultadas.
 
 ## Sumário
 
+- [Status da entrega](#status-da-entrega)
 - [Problema que resolve](#problema-que-resolve)
 - [Arquitetura e fluxo](#arquitetura-e-fluxo)
 - [Tecnologias](#tecnologias)
@@ -26,6 +27,90 @@ e sempre mostram o domínio usado e as fontes consultadas.
 - [Limitações conhecidas](#limitações-conhecidas)
 - [Desenvolvimento assistido por IA](#desenvolvimento-assistido-por-ia)
 - [Publicação no GitHub](#publicação-no-github)
+
+## Status da entrega
+
+| # | Item pedido | Onde está | Situação |
+|---|---|---|---|
+| 1 | Repositório GitHub | https://github.com/henriquepella/areco | Código completo na branch `main`, cada etapa em seu próprio branch |
+| 2 | Execução via Docker | `backend/Dockerfile`, `docker-compose.yml`, `.env.example`, [instruções](#execução-com-docker) | Arquivos prontos. O passo a passo do README é executado pelo workflow de CI a cada push (aba *Actions*) |
+| 3 | Frontend | `frontend/` (HTML, CSS e JS puro) | Funcionando; testado em desktop e celular |
+| 4 | Orquestrador e agentes | `backend/app/agents/` | Funcionando; roteamento 32/32 na avaliação |
+| 5 | Uso das bases de conhecimento | `backend/app/knowledge_base/`, `services/document_service.py`, `services/retrieval_service.py` | Carregadas e indexadas automaticamente na inicialização |
+| 6 | Logs das interações com o agente | [`docs/logs/interacoes_exemplo.jsonl`](docs/logs/interacoes_exemplo.jsonl) (exemplo real) e volume `interaction_logs` em execução | Gravados pela API em JSON Lines |
+| 7 | `AGENTS.md` com registro do processo | [`AGENTS.md`](AGENTS.md) + [`docs/AI_DEVELOPMENT_LOG.md`](docs/AI_DEVELOPMENT_LOG.md) | Atualizado a cada etapa |
+| 8 | Histórico das conversas com IA | [`docs/ai_conversations/`](docs/ai_conversations/) | Exportação original do Claude Code, anonimizada, + registro manual |
+| 9 | Documentação | Este README | Arquitetura, decisões, limitações e testes |
+
+### O que está funcionando
+
+- Orquestrador híbrido (regras com pesos + modelo opcional) com três agentes especializados.
+- Respostas apenas a partir das bases, com fontes; reconhece quando não há evidência, pede
+  esclarecimento em perguntas ambíguas e recusa pedidos de credenciais ou dados pessoais.
+- Valores financeiros calculados de forma determinística e conferidos contra os CSVs.
+- Interface web integrada à API, com encaminhamento visível e animação de digitação.
+- 102 testes automatizados e avaliação com métricas separadas, sem chamadas pagas.
+- Registro das interações com mascaramento de dados pessoais.
+
+### O que ficou pendente ou sem verificação
+
+- **Modo com modelo de linguagem:** implementado para Anthropic e APIs compatíveis com OpenAI,
+  mas **não foi exercitado contra um provedor real** (não havia chave de API durante o
+  desenvolvimento). As barreiras contra respostas infiéis foram testadas com um modelo simulado.
+- **Docker:** não foi executado na máquina de desenvolvimento, que não tem Docker instalado. A
+  validação fica a cargo do workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml), que
+  segue o README num runner Linux do GitHub: `docker compose up --build`, healthcheck, `/health`,
+  frontend, `/api/chat` com valor conferido, 38 perguntas contra o container, volume de logs e
+  `pytest` dentro do container. O resultado fica na aba *Actions*. Docker Desktop no Windows e no
+  macOS não foi testado.
+- Itens fora do escopo desta versão: memória de conversa, autenticação, rate limiting, registro
+  real de manifestações (não existe sistema transacional nos anexos) e PDF/DOCX (nenhum anexo
+  nesses formatos). Detalhes em [Limitações conhecidas](#limitações-conhecidas).
+
+### Dificuldades e alternativas tentadas
+
+| Problema | O que foi tentado | Solução adotada |
+|---|---|---|
+| Sem Docker na máquina de desenvolvimento | Validar o app com as mesmas variáveis e o mesmo diretório da imagem | Workflow do GitHub Actions que segue o README: `docker compose up --build`, healthcheck, chamadas à API e testes dentro do container |
+| Busca devolvia trechos sem relação ("horário do refeitório" → incidentes) | Cobertura simples de termos com corte de 0,3 | Cobertura ponderada por IDF; verbos genéricos como stopwords |
+| Perguntas divididas entre domínios ("gasto e política") | Só um limiar de confiança | Confiança mínima **e** margem mínima entre o 1º e o 2º domínio |
+| Digitação não aparecia nesta máquina | Desligar a animação com "reduzir movimento" | Manter a escrita progressiva (não move nada na tela) e trocar só os deslocamentos por esmaecimento |
+| Resposta em branco com a janela oculta | `requestAnimationFrame` | `setTimeout` com progresso pelo tempo real |
+| Log apagava e-mails oficiais da base | Mascarar pergunta e resposta | Mascarar só a pergunta (texto livre do usuário) |
+
+O registro completo, com comandos e resultados, está no [diário](docs/AI_DEVELOPMENT_LOG.md).
+
+### Decisões técnicas principais
+
+- **CSV em memória em vez de PostgreSQL.** O pacote sugeria carregar os CSVs em PostgreSQL
+  (`docs/fonte_pacote/sql/schema.sql`). Com 300 lançamentos e 180 manifestações, os dados são
+  lidos em memória e os cálculos usam `Decimal`, a mesma precisão de `NUMERIC(14,2)`. Assim a
+  aplicação fica num único container, sem banco para provisionar. As consultas são funções Python
+  com filtros fixos, e nunca SQL gerado pelo modelo, como o próprio pacote recomenda. Com bases
+  maiores, o caminho é importar para PostgreSQL usando o schema fornecido.
+- **BM25 em vez de embeddings:** proporcional a cerca de 650 trechos curtos, sem dependências nem
+  custo, e explicável pela pontuação.
+- **Classificação híbrida:** regras explicáveis e testáveis sem API; o modelo só desempata.
+- **Funciona sem chave de API:** respostas determinísticas ou extrativas, sem simular um modelo.
+
+### O que eu faria diferente
+
+- Configuraria o CI com Docker no primeiro dia, em vez de descobrir no fim que não havia Docker local.
+- Conseguiria cedo uma chave de API de teste, para medir o modo com modelo e as barreiras de
+  fidelidade com respostas reais.
+- Montaria o conjunto de avaliação antes de ajustar pesos, separando casos de ajuste e de teste,
+  para evitar o risco de sobreajuste registrado no diário.
+- Definiria o fluxo de conversa da interface (fases, digitação) junto com o primeiro layout, em
+  vez de redesenhar depois.
+- Usaria um stemmer pronto para português (RSLP) em vez do stemmer mínimo.
+
+### Como concluir e melhorar
+
+1. Rodar a avaliação com `LLM_PROVIDER=anthropic` e comparar com o modo sem modelo.
+2. Adicionar memória curta de conversa para responder a pedidos de esclarecimento.
+3. Autenticação e rate limiting antes de qualquer exposição pública.
+4. Integração autorizada com um sistema de ouvidoria para registrar manifestações.
+5. Ampliar o conjunto de avaliação e incluir um juiz semântico para fidelidade.
 
 ## Problema que resolve
 
@@ -175,9 +260,9 @@ Acesse **http://localhost:8000**. A documentação interativa da API fica em **h
 Sem `.env`, ou com `LLM_PROVIDER=none`, a aplicação sobe em **modo extrativo** (ver abaixo).
 Para usar outra porta, defina `APP_PORT` no `.env`.
 
-> Nota: o Docker não estava instalado na máquina onde o projeto foi desenvolvido, então
-> `docker compose up --build` **não foi executado** pelo autor. O app foi validado com as mesmas
-> variáveis e o mesmo diretório de trabalho da imagem (detalhes no diário).
+> Nota: o Docker não estava instalado na máquina de desenvolvimento, então o passo a passo
+> acima é validado pelo workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) em um
+> runner Linux do GitHub a cada push (resultado na aba *Actions*).
 
 ## Execução local sem Docker
 
@@ -425,7 +510,7 @@ não foi avaliado (não havia chave de API no desenvolvimento).
 - **PDF/DOCX** não suportados (nenhum anexo nesses formatos).
 - **Sem autenticação, autorização ou rate limiting.** Não é adequado para exposição pública.
 - **Fidelidade** medida por palavras-chave; não há avaliação semântica com modelo juiz.
-- Docker não foi executado no ambiente de desenvolvimento (ver nota acima).
+- Docker não foi executado na máquina de desenvolvimento; a validação é feita pelo CI (Linux).
 
 Melhorias futuras: histórico de conversa, stemmer RSLP, embeddings como opção, avaliação com o
 modelo ativo, autenticação, rate limiting e integração real com a ouvidoria.
@@ -439,12 +524,16 @@ O projeto foi desenvolvido com o **Claude Code** (modelo Claude Opus 5.5). O pro
 - [`docs/AI_DEVELOPMENT_LOG.md`](docs/AI_DEVELOPMENT_LOG.md): diário por etapa, com prompts
   resumidos, decisões (aceitas, modificadas, rejeitadas), problemas, correções e resultados reais
   dos testes.
-- [`docs/ai_conversations/`](docs/ai_conversations/): registro das conversas. O arquivo indica se
-  é exportação original ou registro elaborado manualmente.
+- [`docs/ai_conversations/`](docs/ai_conversations/): a exportação original da sessão do Claude
+  Code (anonimizada por [`scripts/anonimizar_conversa.py`](scripts/anonimizar_conversa.py), com a
+  lista do que foi removido e por quê), uma versão legível em Markdown e o registro manual.
 
 O histórico do Git segue o mesmo processo: cada parte foi feita num branch próprio
 (`feat/rag-retrieval`, `feat/agents`, `feat/orchestrator`, `feat/api`, `feat/frontend`,
-`feat/docker`, `feat/evaluation`, `docs/readme`...) e integrada à `main` com merge `--no-ff`.
+`feat/docker`, `feat/evaluation`, `feat/ui-refresh`, `feat/interaction-logs`,
+`ci/docker-validation`, `docs/...`) e integrada à `main` com merge `--no-ff`. O workflow
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda os testes e o passo a passo do Docker
+a cada push.
 
 ## Publicação no GitHub
 
