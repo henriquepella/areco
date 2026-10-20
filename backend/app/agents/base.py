@@ -98,15 +98,27 @@ class BaseAgent:
             "para responder com segurança. Tente reformular a pergunta com outros termos.")
         return AgentAnswer(answer=msg, status="not_found", sources=[], mode="extractive")
 
-    def extractive_text(self, hits: list[SearchHit]) -> str:
-        """Resposta sem modelo: devolve os trechos mais relevantes, identificados."""
-        lines = ["Trechos encontrados nas bases (modo extrativo, sem modelo de linguagem):"]
+    @staticmethod
+    def _readable_body(hit: SearchHit) -> str:
+        c = hit.chunk
+        if c.document.endswith((".json", ".csv")):
+            # "rótulo: a: 1; b: 2" -> lista "- a: 1" / "- b: 2"
+            text = c.text
+            label = (c.section or "").replace("_", " ") + ": "
+            if c.section and text.startswith(label):
+                text = text[len(label):]
+            parts = [p.strip() for p in text.split("; ") if p.strip()]
+            return "\n".join(f"- {p}" for p in parts) if len(parts) > 1 else text
+        lines = [l for l in c.text.split("\n")[1:] if "Documento fictício para avaliação" not in l]
+        return "\n".join(lines).strip() or c.text
+
+    def extractive_text(self, hits: list[SearchHit], lead: bool = True) -> str:
+        """Resposta sem modelo: os trechos mais relevantes, cada um com o documento de origem."""
+        blocks = ["Encontrei estas informações nos documentos:"] if lead else []
         for h in hits[:3]:
-            body = "\n".join(l for l in h.chunk.text.split("\n")[1:]
-                             if "Documento fictício para avaliação" not in l).strip() or h.chunk.text
-            where = f"{h.chunk.document}" + (f" — {h.chunk.section}" if h.chunk.section else "")
-            lines.append(f"\n[{where}]\n{body}")
-        return "\n".join(lines)
+            where = f"**{h.chunk.document}**" + (f" ({h.chunk.section})" if h.chunk.section else "")
+            blocks.append(f"{where}\n{self._readable_body(h)}")
+        return "\n\n".join(blocks)
 
     def rag_answer(self, question: str, docs: set[str] | None = None) -> AgentAnswer:
         hits = self.relevant_hits(question, docs)
@@ -123,7 +135,7 @@ class BaseAgent:
         """Usa o modelo quando configurado; valida a saída; senão devolve o texto de fallback."""
         if not self.llm.available:
             return AgentAnswer(answer=fallback, status="answered", sources=sources,
-                               mode=fallback_mode, notice=self.llm.status()["reason"])
+                               mode=fallback_mode)  # modo e /health já indicam a falta de modelo
         blocks = []
         for i, (doc, section, text) in enumerate(context, 1):
             safe = text.replace("<fontes>", "").replace("</fontes>", "")

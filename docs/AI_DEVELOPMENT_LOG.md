@@ -197,3 +197,44 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   integração futura; PDF/DOCX não suportados (sem anexos nesses formatos).
 - Avaliação pequena e parcialmente usada para ajuste (risco de sobreajuste); fidelidade medida por
   palavras-chave.
+
+### 2026-10-20 — Etapa 11: execução local e nova identidade visual (branch `feat/ui-refresh`)
+- **Prompts (resumo):** "rode o projeto" (Docker continua ausente; app iniciado com uvicorn na
+  porta 8000 e aberto no navegador do Claude Code). Depois, com uma captura de tela: pediu
+  identidade visual mais bonita, textos melhor posicionados e uma animação "como se o robô
+  estivesse digitando, como se fosse uma conversa com alguém".
+- **Ferramenta:** Claude Code; skills `frontend-design` (direção visual) e `animate` (critérios de
+  movimento: propriedades, curvas, duração, movimento reduzido).
+- **Problemas na captura do usuário:** cabeçalho e conteúdo desalinhados; resposta extrativa com
+  cabeçalho técnico ("Trechos encontrados... modo extrativo"), nome de arquivo entre colchetes e
+  listas numeradas renderizadas como parágrafos; aviso técnico `LLM_PROVIDER=none...` repetido
+  em toda resposta; muitos selos soltos acima do balão.
+- **Decisões:**
+  - Identidade "aurora": arco nascendo sobre a linha do horizonte (marca e avatar da orquestradora).
+    Cada agente com avatar e cor próprios (verde-azulado, índigo, ameixa). Barra lateral como lista,
+    sem repetir cards; títulos em caixa normal (sem rótulos em maiúsculas).
+  - Linha de **encaminhamento** visível ("A Aurora encaminhou ao Agente X, confiança de N%"),
+    deixando a orquestração explícita na conversa.
+  - Animação em 3 fases: Aurora "analisando" (≥ 650 ms) → agente "digitando" (600 ms) → texto
+    revelado em velocidade constante (16 ms/caractere, entre 0,5 e 2,4 s) com cursor; rodapé e
+    fontes aparecem depois (opacidade + 4 px, 200 ms, ease-out forte). Clique ou Esc mostram tudo;
+    "Nova conversa" interrompe. Entrada de mensagens com `@starting-style` (opacidade + 6 px, 220 ms).
+  - Backend: resposta extrativa reorganizada (resposta da FAQ primeiro, depois "**arquivo** (seção)"
+    com o trecho; JSON exibido como lista). `notice` deixa de repetir "sem modelo"/"calculado
+    nos CSVs": fica só para avisos excepcionais (falha do provedor, resposta descartada).
+- **Problemas encontrados e correções durante a verificação:**
+  1. Esta máquina informa `prefers-reduced-motion: reduce` (efeitos de animação do Windows
+     desligados). A 1ª versão desligava a digitação nesse caso, então o usuário **não veria** o
+     efeito pedido. Decisão: a escrita progressiva continua (é revelação de texto, sem movimento na
+     tela, e pode ser pulada); com movimento reduzido, só os deslocamentos viram esmaecimento.
+  2. Com o painel do navegador oculto, `requestAnimationFrame` não disparava (embora
+     `visibilityState` fosse `visible`) e a resposta ficava em branco. A digitação passou a usar
+     `setTimeout` com progresso pelo tempo real.
+  3. No celular, "R$" quebrava a linha separado do valor; o frontend troca o espaço por espaço
+     não separável (o texto da API não muda).
+- **Verificação no navegador (medições via DOM, 1440×900 e 375×812):** fases medidas em
+  ~0,65 s / ~0,6 s / ~2,5 s; clique e Esc completam o texto na hora; "Nova conversa" no meio da
+  digitação limpa tudo e a próxima pergunta funciona; envio bloqueado durante a digitação; erro
+  de rede simulado mostra "Tentar novamente"; sem rolagem horizontal em 375 px; console sem erros.
+- **Testes executados:** `python -m pytest` → `88 passed in 1.79s`; `python -m tests.eval.run_eval`
+  → 32/32, 23/23, 27/27, 10/10.

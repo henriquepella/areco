@@ -42,13 +42,18 @@ class InternalInfoAgent(BaseAgent):
                     "colaboradores ou clientes. Para problemas de acesso, abra um chamado no portal "
                     "de TI; suspeitas de incidente devem ser reportadas a seguranca@aurora.example."))
 
-    def extractive_text(self, hits: list[SearchHit]) -> str:
+    def extractive_text(self, hits: list[SearchHit], lead: bool = True) -> str:
+        """A resposta curada da FAQ vem primeiro (se for relevante); os documentos, como detalhe."""
         faq = {item.get("id"): item for item in self.kb.json_docs.get("faq_interno.json", [])
                if isinstance(item, dict)}
-        top = hits[0].chunk
-        if top.document == "faq_interno.json" and top.section in faq:
-            item = faq[top.section]
-            head = f"{item.get('resposta', '')} (fonte: {item.get('documento', top.document)})"
-            rest = [h for h in hits[1:] if h.chunk.document != "faq_interno.json"]
-            return head + ("\n\n" + super().extractive_text(rest) if rest else "")
-        return super().extractive_text(hits)
+        best = next((h for h in hits if h.chunk.document == "faq_interno.json"
+                     and h.chunk.section in faq and h.score >= hits[0].score * 0.6), None)
+        if best is None:
+            return super().extractive_text(hits, lead)
+        item = faq[best.chunk.section]
+        origin = item.get("documento", best.chunk.document)
+        rest = [h for h in hits if h.chunk.document != "faq_interno.json"]
+        head = item.get("resposta", "")
+        if not any(h.chunk.document == origin for h in rest):
+            head += f"\n\nFonte: **{origin}**"
+        return head + ("\n\n" + super().extractive_text(rest, lead=False) if rest else "")

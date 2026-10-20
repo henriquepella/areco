@@ -230,14 +230,17 @@ LLM_MODEL=<modelo-instalado-no-ollama>
 provedor, basta acrescentar um método nesse arquivo.
 
 **Modo extrativo (sem chave).** A aplicação funciona sem modelo de linguagem e informa isso no
-indicador do cabeçalho e no campo `notice` de cada resposta:
+cabeçalho ("Online, sem modelo de IA", com o motivo ao passar o mouse), em `GET /health` e no
+modo de cada resposta (`"mode": "extractive"`, exibido como "Trechos dos documentos, sem modelo
+de IA"):
 
 - Financeiro e ouvidoria: respostas determinísticas, completas, calculadas sobre os dados.
 - Informações internas: devolve a resposta da FAQ quando houver e os trechos mais relevantes,
   identificados por arquivo e seção. Nada é simulado como se viesse de um modelo.
 
-Se a chave estiver ausente ou o provedor falhar (rede, autenticação, recusa), a resposta cai
-automaticamente para o modo extrativo, com aviso.
+Se o provedor configurado falhar (rede, autenticação, recusa) ou a resposta do modelo for
+descartada por infidelidade às fontes, a resposta cai automaticamente para o modo extrativo e o
+campo `notice` explica o motivo. O `notice` fica reservado a esses avisos excepcionais.
 
 ## Bases de conhecimento
 
@@ -306,7 +309,7 @@ curl -X POST http://localhost:8000/api/chat \
     "matched_terms": {"financeiro": ["despesa", "gasto", "quanto", "pagas", "2025"], "informacoes_internas": [], "ouvidoria": []},
     "reason": "termos do domínio financeiro predominam"
   },
-  "notice": "Valores calculados diretamente sobre os CSVs (dados sintéticos)."
+  "notice": null
 }
 ```
 
@@ -317,17 +320,29 @@ Erros: `422` para entrada inválida ou longa demais, `500` com mensagem genéric
 
 ## Como interpretar as respostas e as fontes
 
-Na interface, cada resposta mostra:
+A conversa reproduz o caminho da pergunta:
 
-- **Domínio** (selo colorido) e o **agente** que respondeu.
-- **Modo:** *Calculado sobre os dados* (determinístico), *Trechos recuperados (sem IA)* (extrativo)
-  ou *Gerado por IA a partir das fontes*.
-- **Status**, quando não é uma resposta comum: *Sem evidência suficiente*, *Precisa de
-  esclarecimento*, *Solicitação recusada*, *Fora do escopo*.
-- **Roteamento %:** a confiança do orquestrador (métrica acima). É a confiança na escolha do
-  domínio, não na resposta.
-- **Fontes consultadas** (expansível): arquivo, seção, pontuação BM25 e o trecho usado. Nas
-  consultas determinísticas, o trecho descreve o filtro aplicado e os IDs dos registros somados.
+1. Enquanto a API responde, a **Aurora** (orquestradora) aparece "analisando sua pergunta".
+2. Uma linha de **encaminhamento** mostra para qual agente a pergunta foi enviada, com a
+   **confiança do roteamento** (métrica acima; é a confiança na escolha do domínio, não na
+   resposta). Passe o mouse para ver o motivo da classificação.
+3. O agente aparece "digitando" e a resposta é escrita aos poucos. Clique na resposta ou
+   pressione **Esc** para vê-la inteira de uma vez.
+
+Cada agente tem cor e avatar próprios (Financeiro em verde-azulado, Informações Internas em
+índigo, Ouvidoria em ameixa; a Aurora em azul-marinho). Na resposta:
+
+- **Status**, quando não é uma resposta comum: *Sem evidência suficiente*, *Precisa de mais
+  detalhes*, *Pedido recusado*, *Fora do escopo*.
+- **Modo** no rodapé: *Calculado diretamente nos dados da base* (determinístico), *Trechos dos
+  documentos, sem modelo de IA* (extrativo) ou *Escrito por IA a partir das fontes*.
+- **Fontes consultadas** (expansível): arquivo, seção e o trecho usado; a pontuação BM25 aparece
+  ao passar o mouse no nome do arquivo. Nas consultas determinísticas, o trecho descreve o filtro
+  aplicado e os IDs dos registros somados.
+
+A digitação é só apresentação: a resposta completa já chegou da API antes de começar. Com
+"reduzir movimento" ativo no sistema, os deslocamentos (pontos saltando, entrada deslizante)
+viram esmaecimentos; a escrita progressiva continua, porque não move nada na tela.
 
 As fontes vêm sempre da recuperação ou da consulta, nunca do texto do modelo. Se o modelo citar
 um arquivo que não recebeu, ou escrever um valor monetário ausente das fontes, a resposta dele é
