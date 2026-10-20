@@ -104,3 +104,15 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
 - Log estruturado por requisição sem o texto da pergunta (só tamanho, categoria, agente,
   fontes, latência), para não registrar dados pessoais.
 - **Testes executados:** `cd backend && python -m pytest` → `70 passed in 1.42s`.
+
+### 2026-10-20 — Etapa 6: API FastAPI (branch `feat/api`)
+- Endpoints: `GET /health`, `POST /api/chat`, `POST /api/classify` (classificação isolada da
+  geração, exigência do item 4), `GET /api/agents`, `GET /api/knowledge/status`.
+- Erros: 422 com mensagem amigável (sem eco do payload), 500 genérico sem stack/caminhos;
+  limite configurável de 1000 caracteres (`MAX_QUESTION_CHARS`). Cabeçalhos de segurança
+  (CSP `self`, nosniff, frame-ancestors none). Frontend servido pelo mesmo app → sem CORS.
+- Logs JSON por linha; logger do `httpx` em WARNING para não registrar URLs do provedor.
+- **Testes executados:** `cd backend && python -m pytest` → `87 passed in 1.74s`.
+- **Verificação manual:** `uvicorn app.main:app --port 8765` + `curl /health` e `curl POST /api/chat`
+  (OUV-0002) → 200, resposta correta; logs `knowledge_loaded` (3/11/2 documentos) e `chat_handled`
+  sem o texto da pergunta.
