@@ -260,3 +260,26 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   + `python -m tests.eval.simular_interacoes --url http://localhost:8010` → 38 requisições HTTP, todas
   200, 38 linhas no arquivo; conferido que CPF/e-mail fictícios não aparecem em claro.
 - **Testes executados:** `python -m pytest` → `102 passed in 1.94s` (14 novos sobre o registro).
+
+### 2026-10-20 — Etapa 13: CI com Docker, status da entrega e exportação da conversa
+- **CI (branch `ci/docker-validation`):** como não há Docker local, foi criado
+  `.github/workflows/ci.yml` com dois jobs: (1) `pytest` + avaliação; (2) o passo a passo do README
+  com Docker (`cp .env.example .env`, `docker compose up -d --build`, espera do healthcheck,
+  `/health`, frontend, `/api/chat` conferindo R$ 275.727,70, 38 perguntas contra o container, volume
+  de logs com ≥ 39 linhas, `pytest` dentro do container). Também passou a gravar o `.jsonl` com LF
+  no Windows (antes saía CRLF).
+- **Problema:** o resultado do CI não pôde ser conferido daqui. Logo após o push, a API pública do
+  GitHub passou a responder 404 para o repositório (antes respondia 200), o que indica que ele ficou
+  privado; o `gh` não está instalado e as credenciais do Git do usuário não foram usadas para outra
+  finalidade. O push foi confirmado com `git ls-remote` (main = `e2505ab`). **O resultado da
+  primeira execução do CI está pendente de conferência pelo usuário na aba Actions.**
+- **README:** nova seção "Status da entrega" (tabela dos 9 itens, o que funciona, o que ficou
+  pendente, dificuldades e alternativas, decisões principais incluindo CSV em memória em vez de
+  PostgreSQL, o que faria diferente, próximos passos). A situação do Docker foi escrita de forma
+  verdadeira independentemente do resultado do CI.
+- **Exportação da conversa:** `scripts/anonimizar_conversa.py` filtra a exportação do Claude Code
+  (mantém mensagens, ferramentas e resultados; remove prompt de sistema, listas de ferramentas e
+  conectores da conta, lembretes do sistema, raciocínio interno e metadados da máquina; troca
+  e-mail e caminhos pessoais). O script falha se sobrar algum termo bloqueado. Teste na exportação
+  anterior: 938 → 373 entradas; a 1ª execução barrou um ID de pasta da conta (adicionada a troca
+  por `<conta>`) e um falso positivo ("gmail" dentro de um padrão de busca de segredos).
