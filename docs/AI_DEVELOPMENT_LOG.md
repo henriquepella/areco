@@ -30,3 +30,34 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
 ### 2026-10-20 — Etapa 1: AGENTS.md e diário
 - Criados `AGENTS.md`, este diário e `docs/ai_conversations/`.
 - **Decisão:** aceita (exigência do enunciado).
+
+### 2026-10-20 — Etapa 2: arquitetura e decisões técnicas
+- **Prompt (resumo):** usuário pediu commits por parte em branches separados com merge na `main`
+  (skill `git-commit-helper`) e informou o remoto `github.com/henriquepella/areco`.
+- **Decisões:**
+  - **Busca:** BM25 implementado em Python puro, um índice por domínio. Alternativas
+    consideradas: `rank_bm25` (dependência extra para ~40 linhas) e embeddings/banco vetorial
+    (desproporcional para ~670 trechos curtos). **Aceita** a versão simples.
+  - **Índice:** reconstruído em memória ao iniciar (milissegundos). Não é persistido em disco;
+    a pasta `knowledge_base` é montada como volume no Docker para atualizar documentos.
+  - **Formatos:** `.md`, `.txt`, `.csv`, `.json`. PDF/DOCX **não** foram implementados porque
+    não há nenhum anexo nesses formatos (o enunciado pede só os "realmente necessários").
+  - **Chunking:** Markdown por seção `##` (cabeçalho com versão anexado à 1ª seção); JSON por
+    item/chave; CSV uma linha por trecho. Metadados: documento, domínio, seção, versão. `page`
+    fica sempre `null` (nenhum anexo é paginado).
+  - **Provedor de IA:** SDK oficial `anthropic` para Claude e `httpx` para APIs compatíveis
+    com OpenAI (Ollama, OpenRouter etc.), escolhidos por `LLM_PROVIDER`. Sem chave: modo
+    extrativo (resposta montada só com trechos/cálculos, sem simular um modelo).
+- **Git:** remoto já tinha um commit "Initial commit" com README de 1 linha; integrado com
+  `--allow-unrelated-histories` sem conflitos. Adicionado `.gitattributes` (LF) após avisos de CRLF.
+
+### 2026-10-20 — Etapa 3: ingestão e recuperação (branch `feat/rag-retrieval`)
+- Arquivos: `core/config.py`, `services/document_service.py`, `services/retrieval_service.py`,
+  `tests/test_retrieval.py`.
+- Validações: extensão permitida, tamanho máximo, UTF-8, vazio, JSON/CSV malformado,
+  links simbólicos que saiam da base. Arquivos fora das pastas de domínio são ignorados.
+- Smoke test manual: financeiro 3 docs/451 trechos, internas 11/20, ouvidoria 2/185.
+- **Observação:** a pergunta "Quais status podem aparecer na ouvidoria?" recupera mal por BM25
+  ("status" aparece em todas as linhas do CSV, IDF baixo). Será resolvida no agente de
+  ouvidoria lendo os campos enumerados de `referencia_ouvidoria.json` diretamente.
+- **Testes executados:** `cd backend && python -m pytest` → `13 passed in 0.15s`.
