@@ -116,3 +116,22 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
 - **Verificação manual:** `uvicorn app.main:app --port 8765` + `curl /health` e `curl POST /api/chat`
   (OUV-0002) → 200, resposta correta; logs `knowledge_loaded` (3/11/2 documentos) e `chat_handled`
   sem o texto da pergunta.
+
+### 2026-10-20 — Etapa 7: interface web (branch `feat/frontend`)
+- **Prompt (resumo):** usuário ativou a skill `/senior-frontend`; ela é voltada a React/Next,
+  então só as práticas gerais foram aproveitadas (o enunciado proíbe frameworks).
+- **Decisões:** HTML/CSS/JS puro, servido pelo próprio FastAPI (mesma origem). Sem fontes ou
+  scripts externos e sem estilos inline, para respeitar a CSP `self`. Texto das respostas
+  renderizado por DOM (`textContent`), com suporte só a negrito e listas: nada de `innerHTML`
+  com conteúdo vindo da API. Ícones SVG embutidos; cor por domínio (verde/azul/âmbar).
+- **Verificação no navegador (painel do Claude Code, uvicorn na porta 8000):**
+  - Sugestão financeira → R$ 305.937,01, badge "Financeiro", modo "Calculado sobre os dados", fontes expansíveis.
+  - OUV-9999 digitado + Enter → "Sem evidência suficiente", sem dados inventados.
+  - Console sem erros (nenhuma violação de CSP).
+  - Servidor parado → mensagem "Não foi possível conectar ao serviço" (após ~5 s no Windows).
+  - Falha de rede simulada via `fetch` → botão "Tentar novamente" refaz a pergunta sem duplicar a mensagem.
+  - 3 cliques rápidos em sugestões → 1 única chamada a `/api/chat` (envio duplicado bloqueado).
+  - "Nova conversa" limpa o histórico e volta ao estado inicial.
+- **Problema e correção:** em 375 px a página tinha 422 px de largura (rolagem horizontal):
+  a lista rolável de domínios esticava a coluna do grid. Corrigido com `min-width: 0` na
+  barra lateral; título com `nowrap` no celular. Medido depois: 375 = 375.
