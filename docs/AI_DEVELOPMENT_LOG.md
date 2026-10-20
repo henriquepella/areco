@@ -87,3 +87,20 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   (27 lançamentos); T007 = Tecnologia, R$ 43.229,05; T011 = R$ 275.727,70 (6 lançamentos).
 - **Testes executados:** `cd backend && python -m pytest` → `43 passed in 1.49s`
   (inclui LLM simulado: resposta fiel, citação inventada, valor inventado, falha de rede).
+
+### 2026-10-20 — Etapa 5: orquestrador (branch `feat/orchestrator`)
+- **Decisão:** classificação **híbrida**. Regras com pesos por domínio primeiro (rápidas,
+  explicáveis, testáveis sem API); o modelo só classifica quando as regras são inconclusivas
+  **e** há provedor configurado, com saída restrita às categorias válidas. Sem modelo, pergunta
+  ambígua → pedido de esclarecimento; sem nenhum termo de domínio → fora de escopo.
+- **Métrica de confiança (regras):** `pontos_vencedor / soma_pontos × min(1, pontos_vencedor / 4)`,
+  exigindo confiança ≥ 0,4 e margem ≥ 1,5 ponto sobre o 2º domínio. Classificação pelo
+  modelo devolve `confidence = null` (sem estimativa calibrada, conforme o enunciado).
+- **Problemas e correções:**
+  - T003 ("aprovações para uma compra de R$ 12.000") caía em `indefinido`: "compra" e
+    "aprovação" estavam na mesma regra e somavam um único peso. Separadas em duas regras.
+  - Teste de ambiguidade ("gasto e política") era classificado como financeiro (3 × 2 pontos,
+    confiança 0,45). Adicionada a exigência de margem mínima entre o 1º e o 2º domínio.
+- Log estruturado por requisição sem o texto da pergunta (só tamanho, categoria, agente,
+  fontes, latência), para não registrar dados pessoais.
+- **Testes executados:** `cd backend && python -m pytest` → `70 passed in 1.42s`.
