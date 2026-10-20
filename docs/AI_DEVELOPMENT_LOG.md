@@ -135,3 +135,16 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
 - **Problema e correção:** em 375 px a página tinha 422 px de largura (rolagem horizontal):
   a lista rolável de domínios esticava a coluna do grid. Corrigido com `min-width: 0` na
   barra lateral; título com `nowrap` no celular. Medido depois: 375 = 375.
+
+### 2026-10-20 — Etapa 8: Docker e configuração (branch `feat/docker`)
+- Arquivos: `backend/Dockerfile` (python:3.12-slim, usuário sem privilégios, HEALTHCHECK em
+  `/health`), `docker-compose.yml` (porta `APP_PORT`, `.env` opcional, volume somente leitura
+  para `knowledge_base`), `.dockerignore`, `.env.example` (`LLM_PROVIDER=none` por padrão).
+- **Decisão:** imagem única servindo API + frontend (mesma origem, sem CORS). Índice BM25
+  não é persistido (reconstruído no start); o volume persiste/atualiza os documentos.
+- **Limitação:** Docker **não está instalado** nesta máquina, então `docker compose up --build`
+  **não foi executado**. O que foi verificado no lugar:
+  - `docker-compose.yml` parseado com PyYAML (estrutura válida).
+  - App iniciado com as mesmas variáveis da imagem (`KNOWLEDGE_DIR`, `FRONTEND_DIR`, cwd
+    `backend/`): `/health` → `ok`, `/` e `/js/app.js` → 200.
+  - Com `LLM_PROVIDER=anthropic` sem chave: `/health` informa `LLM_API_KEY não configurada`.
