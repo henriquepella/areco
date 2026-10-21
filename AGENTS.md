@@ -35,6 +35,7 @@ Etapas registradas no diário:
 | 15–16 | Menu inteligente de perguntas (conversa guiada) e exportação atualizada |
 | 17 | Correções de uma revisão externa: CI confirmado, validação separada, testes HTTP dos provedores, anonimizador |
 | 18 | Preparação para envio |
+| 19 | Avaliação com modelo real: diagnóstico e workflow que falha quando o modelo não responde |
 
 ## Regras de registro (obrigatórias)
 

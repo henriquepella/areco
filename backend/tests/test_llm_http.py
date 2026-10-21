@@ -94,9 +94,19 @@ def test_refusal_and_server_error_raise_llmerror(provider):
     provider.mode = "refusal"
     with pytest.raises(LLMError):
         svc.complete("s", "u")
+    assert "recusou" in svc.last_error
     provider.mode = "error"
     with pytest.raises(LLMError):
         svc.complete("s", "u")
+    # Diagnóstico seguro: tipo e código HTTP, nunca a chave.
+    assert "HTTP 500" in svc.last_error and "fixture-not-a-key" not in svc.last_error
+    compat = LLMService(Settings(llm_provider="openai", llm_model="m", llm_base_url=provider.url))
+    with pytest.raises(LLMError):
+        compat.complete("s", "u")
+    assert compat.last_error == "HTTPStatusError HTTP 500"
+    provider.mode = "ok"
+    svc.complete("s", "u")
+    assert svc.last_error is None
 
 
 def test_api_end_to_end_with_model(provider):

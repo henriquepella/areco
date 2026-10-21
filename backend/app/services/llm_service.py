@@ -23,12 +23,23 @@ class LLMError(RuntimeError):
     """Falha ao falar com o provedor. A mensagem é segura para exibir ao usuário."""
 
 
+def describe_error(exc: Exception) -> str:
+    """Resumo da falha sem dados sensíveis: tipo da exceção, código HTTP e tipo de erro da API
+    (ex.: "AuthenticationError HTTP 401 authentication_error")."""
+    status = getattr(exc, "status_code", None) or getattr(getattr(exc, "response", None), "status_code", None)
+    api_type = getattr(exc, "type", None)
+    parts = [type(exc).__name__, f"HTTP {status}" if status else None,
+             api_type if isinstance(api_type, str) else None]
+    return " ".join(p for p in parts if p)
+
+
 class LLMService:
     def __init__(self, settings: Settings):
         self.s = settings
         self.provider = settings.llm_provider if settings.llm_provider in SUPPORTED else "invalid"
         self.model = settings.llm_model or DEFAULT_MODELS.get(self.provider, "")
         self._client = None
+        self.last_error: str | None = None  # diagnóstico seguro da última falha (sem segredos)
 
     @property
     def available(self) -> bool:
@@ -55,15 +66,19 @@ class LLMService:
         try:
             text = self._anthropic(system, user, max_tokens) if self.provider == "anthropic" \
                 else self._openai(system, user, max_tokens)
-        except LLMError:
+        except LLMError as exc:
+            self.last_error = str(exc)
             raise
         except Exception as exc:  # noqa: BLE001 - qualquer falha do provedor vira LLMError
-            # Só o tipo do erro vai para o log: mensagens podem conter cabeçalhos/segredos.
-            logger.error("llm_call_failed", extra={"provider": self.provider,
-                                                   "error_type": type(exc).__name__})
+            # Só tipo, código HTTP e tipo de erro da API vão para o log: a mensagem e o corpo da
+            # resposta podem conter cabeçalhos ou segredos.
+            self.last_error = describe_error(exc)
+            logger.error("llm_call_failed", extra={"provider": self.provider, "error": self.last_error})
             raise LLMError("O provedor de IA não respondeu corretamente.") from exc
         if not text.strip():
+            self.last_error = "resposta vazia"
             raise LLMError("O provedor de IA retornou uma resposta vazia.")
+        self.last_error = None
         return text.strip()
 
     def _anthropic(self, system: str, user: str, max_tokens: int) -> str:
