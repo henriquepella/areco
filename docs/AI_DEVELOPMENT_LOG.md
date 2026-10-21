@@ -433,3 +433,11 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   force-push e fica para decisão do usuário.
 - **Testes executados:** `python -m pytest` → `141 passed in 9.65s`; `run_eval` → 32/32, 23/23,
   27/27, 10/10; `run_eval --validacao` → 11/15, 9/14, 9/14, 1/1.
+- **Exportação v3 (branch `docs/conversation-export-v3`):** nova exportação (3.766 → 1.565 entradas)
+  com o anonimizador corrigido. A checagem nova do próprio script (separadores ignorados) **barrou a
+  1ª tentativa**: sobrava o termo já sem separador dentro do meu script de verificação citado na
+  conversa; o separador passou a ser opcional na regex. Resultado: script "nenhum termo proibido";
+  verificação independente em arquivo (texto bruto + strings decodificadas, separadores ignorados) →
+  0 ocorrências de pasta do usuário, e-mail e identificador da conta; sobras inofensivas explicadas
+  (`gmail\.com` em uma regex de varredura e o nome genérico da pasta `Claude-Data`); JSONL válido,
+  24/24 imagens, 13/13 mensagens do usuário presentes. As versões antigas continuam no histórico do Git.
