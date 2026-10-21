@@ -38,6 +38,8 @@ ferramentas e capturas de tela dos testes no navegador.
 O script termina com erro se o e-mail, a pasta do usuário ou outros termos bloqueados
 sobrarem na saída. Nenhuma chave de API ou token foi usado no desenvolvimento.
 
-**Limite da exportação:** ela foi feita no fim da sessão, antes da mensagem final do
-assistente, que por isso não aparece nela. O `.zip` original, sem anonimização, fica só
+**Versão atual:** exportação refeita em 2026-10-20 depois do menu inteligente de perguntas. Ela
+cobre todos os pedidos da sessão, do enunciado inicial ao pedido de atualizar esta exportação
+(3.326 entradas exportadas, 1.389 mantidas). **Limite:** a exportação é feita antes da mensagem
+final do assistente nesse último pedido, que por isso não aparece nela. O `.zip` original, sem anonimização, fica só
 na máquina do autor.

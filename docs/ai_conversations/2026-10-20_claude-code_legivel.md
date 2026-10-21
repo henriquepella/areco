@@ -1613,3 +1613,905 @@ Status da entrega enviado. Último passo: atualizo o registro manual com os pedi
 - ferramenta `Bash`: Update manual record with latest requests
 
 - ferramenta `mcp__ccd_session_mgmt__export_transcript`
+
+- ferramenta `Bash`: Anonymize final export into docs/ai_conversations
+
+
+- ferramenta `Bash`: Show contexts of remaining banned terms
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `Bash`: Re-run anonymizer and validate output integrity
+
+### Claude · 2026-10-20 20:32:04
+
+Era a ordem das trocas: "[termo removido]" virava `[termo removido]` antes da troca do e-mail, e o nome antes do "@" sobrava. Passo a trocar o e-mail primeiro.
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `Bash`: Re-run anonymizer with fixed order and validate
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `Bash`: Re-run with path replacement first; inspect remaining markers
+
+### Claude · 2026-10-20 20:32:37
+
+Agora só sobram 27 marcadores, todos nos meus comandos de inspeção. Os caminhos viraram `<HOME>` (455). Confiro o fim da versão legível para ver se o texto está bom:
+
+- ferramenta `Bash`: Check readable transcript structure and ending
+
+### Claude · 2026-10-20 20:32:45
+
+A versão legível está boa: 7 mensagens suas em ordem, as skills carregadas e as ferramentas usadas. Acrescento ao índice da pasta a linha sobre `[termo removido]` e publico.
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\docs\ai_conversations\README.md
+
+- ferramenta `Bash`: Log, commit anonymized export, merge and push
+
+### Claude · 2026-10-20 20:33:01
+
+Tudo enviado. Faço a revisão final: varredura de dados sensíveis em **todos** os arquivos versionados, a suíte de testes, e religo o app para você.
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `Bash`: Scan tracked files for sensitive terms and run tests
+
+- ferramenta `mcp__Claude_Browser__preview_start`
+
+### Claude · 2026-10-20 20:33:19
+
+A varredura ainda encontra "[termo removido]" e um pedaço do ID da pasta da conta em algum arquivo. `sk-ant-` e `ghp_` devem ser só os padrões de detecção e a fixture de teste. Vejo onde estão:
+
+- ferramenta `Bash`: Locate remaining sensitive-looking terms
+
+
+- ferramenta `Bash`: Re-anonymize without partial id, commit, merge, push
+
+- ferramenta `mcp__ccd_turn__wrap_up`
+
+### Claude · 2026-10-20 20:33:55
+
+Os três itens estão prontos e na `main` do GitHub. Antes de entregar, dois pontos dependem de você.
+
+**⚠️ O repositório parece ter ficado privado.** Logo após um dos meus envios, ele passou a responder "não encontrado" (404) para quem não está logado, e antes abria normalmente. Os envios continuam chegando, então ele existe. Se ficou privado, os avaliadores não vão conseguir clonar: torne-o público em *Settings → General → Danger Zone → Change visibility* ou convide quem vai avaliar.
+
+**⚠️ O Docker agora tem um teste automático, mas eu não vi o resultado.** Criei um workflow do GitHub Actions que segue o passo a passo do README num servidor do GitHub:
+- copia o `.env.example` e roda `docker compose up --build`;
+- espera o container ficar saudável e testa a API, a interface e as 38 perguntas;
+- confere o arquivo de log e roda os testes dentro do container.
+
+Sem login eu não consigo ler o resultado. Confira em https://github.com/henriquepella/areco/actions. No README escrevi o status do Docker de um jeito que vale qualquer que seja o resultado; se falhar, cole o erro que eu corrijo.
+
+**O que foi feito**
+
+1. **Logs das interações (item 6):** cada pergunta respondida vira uma linha num arquivo com categoria, agente, status, fontes, resposta e tempo. CPF, e-mail, telefone e senhas na pergunta são mascarados.
+   - Exemplo real em `docs/logs/interacoes_exemplo.jsonl`: 38 perguntas enviadas à API rodando, gravadas pelo próprio servidor.
+   - Corrigi um problema: a primeira versão apagava também os e-mails oficiais das respostas, como `seguranca@aurora.example`.
+   - No Docker, o arquivo fica num volume próprio, que o usuário do container consegue gravar em qualquer sistema.
+2. **Conversa exportada (item 8):** a exportação original desta sessão, completa até agora, está em `docs/ai_conversations/`. Há uma versão `.jsonl` e uma legível em Markdown.
+   - **Removido:** o prompt de sistema, as listas de ferramentas e conectores da sua conta, o raciocínio interno, seu e-mail e os caminhos do PC.
+   - O script de anonimização está no repositório e para com erro se algo proibido sobrar. Ele barrou quatro problemas antes da publicação, e todos foram corrigidos.
+   - O `.zip` original, sem anonimização, ficou só na sua pasta Downloads.
+3. **Status da entrega no README:** tabela com os 9 itens e onde está cada um, o que funciona, o que ficou pendente, dificuldades e alternativas, a decisão de não usar PostgreSQL e o que eu faria diferente.
+
+Os 102 testes passam. O app voltou a rodar em http://localhost:8000 e agora grava os logs em `logs/interacoes.jsonl`.
+
+### Skill carregada · 2026-10-20 20:34:00
+
+`<command-message>clean-code</command-message>`
+
+### Skill carregada · 2026-10-20 20:34:00
+
+`Base directory for this skill: <HOME>\.claude\skills\clean-code`
+
+### Claude · 2026-10-20 20:34:11
+
+Vou fazer a limpeza sem mudar comportamento. Para provar a equivalência, antes de mexer em qualquer coisa gravo um retrato das respostas atuais da API para um conjunto grande de perguntas, e no fim comparo com a versão nova. Começo lendo todo o código.
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `Read`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\base.py
+
+- ferramenta `Read`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Read`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+- ferramenta `Read`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\orchestrator.py
+
+- ferramenta `Read`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\internal_info_agent.py
+
+
+- ferramenta `Bash`: Print current base and internal agent sources
+
+- ferramenta `Bash`: Print current financial and ombudsman agent sources
+
+- ferramenta `Read`: <HOME>\.claude\projects\<HOME>-OneDrive-Documentos-Vscode--github-adeco\0860a0fb-3c9c-4a56-bd79-e2ae77b51f16\tool-results\bxqlaxc9b.txt
+
+- ferramenta `Bash`: Print retrieval, main, config and chat route sources
+
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `Bash`: Write and run behavior snapshot before refactoring
+
+### Claude · 2026-10-20 20:35:48
+
+O retrato foi gravado (443 KB), mas o app escreve logs JSON no stdout, e isso pode ter se misturado ao arquivo. Confiro:
+
+- ferramenta `Bash`: Check snapshot file for mixed log lines
+
+### Claude · 2026-10-20 20:35:54
+
+Misturou mesmo. Faço o script gravar direto num arquivo, separado dos logs:
+
+- ferramenta `Bash`: Rewrite snapshot to file and summarize it
+
+
+- ferramenta `Bash`: Snapshot anonymizer output before refactoring
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `Bash`: Create refactor branch from clean main
+
+### Claude · 2026-10-20 20:37:11
+
+Começo pela base dos agentes: helpers compartilhados e a resposta de fallback montada num lugar só.
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\base.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\base.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\base.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\base.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\base.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\base.py
+
+
+- ferramenta `Write`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+### Claude · 2026-10-20 20:38:44
+
+Agora a Ouvidoria: `count()` vira duas funções (filtrar e resumir), com os mesmos filtros na mesma ordem, e passa a usar os helpers compartilhados.
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+### Claude · 2026-10-20 20:39:23
+
+Agora o orquestrador: `score_question` avalia cada regex uma vez só, e `handle` separa as duas respostas possíveis.
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\orchestrator.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\orchestrator.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\orchestrator.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\orchestrator.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\orchestrator.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\orchestrator.py
+
+### Claude · 2026-10-20 20:39:48
+
+Agora os ajustes menores: stopword duplicada, leitura do caminho do log em `config.py`, docstring e cálculo de tempo na rota de chat, número mágico na FAQ e a variável global do anonimizador.
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\services\retrieval_service.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\core\config.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\core\config.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\api\routes\chat.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\api\routes\chat.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\internal_info_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\internal_info_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\internal_info_agent.py
+
+### Claude · 2026-10-20 20:40:10
+
+Por último no Python, o anonimizador: a regex dos termos bloqueados deixa de ser variável global e passa a ser parâmetro. Vejo as linhas atuais antes de editar:
+
+- ferramenta `Bash`: Locate global usage in anonymizer script
+
+- ferramenta `Bash`: Replace global regex with a parameter in anonymizer
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\scripts\anonimizar_conversa.py
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `Bash`: Compile, run tests and compare behavior snapshots
+
+
+- ferramenta `Bash`: Mutation check that the snapshot detects behavior changes
+
+### Claude · 2026-10-20 20:41:10
+
+A comparação é sensível: mudar um único limiar de 0,40 para 0,41 já altera 16 linhas do retrato. Agora o anonimizador (comparação por hash) e a avaliação:
+
+- ferramenta `Bash`: Compare anonymizer outputs and run evaluation
+
+### Claude · 2026-10-20 20:41:21
+
+Anonimizador com saída idêntica e avaliação inalterada. Agora reinicio o servidor com o código novo e repito no navegador a mesma sequência de conversa, comparando o HTML com o gravado antes.
+
+- ferramenta `mcp__Claude_Browser__preview_stop`
+
+- ferramenta `mcp__Claude_Browser__preview_start`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+### Claude · 2026-10-20 20:41:53
+
+O HTML final da conversa é **idêntico** ao de antes: 19.122 caracteres, 16 mensagens, 7 encaminhamentos e 1 erro. Confiro o console e os logs do servidor:
+
+- ferramenta `mcp__Claude_Browser__read_console_messages`
+
+- ferramenta `mcp__Claude_Browser__preview_logs`
+
+- ferramenta `Bash`: Show refactor diff size
+
+### Claude · 2026-10-20 20:42:00
+
+Os dois erros de conexão no console devem ser do intervalo em que o servidor esteve parado para reiniciar, quando a página ainda tentava alcançá-lo. Confirmo recarregando e checando de novo:
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__read_console_messages`
+
+### Claude · 2026-10-20 20:42:13
+
+A lista ainda mostra os mesmos 2 erros. Pode ser só o histórico guardado pelo painel. Para tirar a dúvida, confiro as requisições de rede depois do reload:
+
+- ferramenta `mcp__Claude_Browser__read_network_requests`
+
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `Bash`: Locate end of folder structure section in README
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\README.md
+
+- ferramenta `Bash`: Log diary, commit refactor, merge and push
+
+- ferramenta `mcp__ccd_turn__wrap_up`
+
+### Claude · 2026-10-20 20:43:16
+
+O código foi limpo e reorganizado **sem nenhuma mudança de comportamento**, e consegui provar isso. Antes de editar, gravei as respostas completas da API para 87 perguntas que passam por todos os ramos. Depois da limpeza, o resultado ficou idêntico byte a byte. As alterações estão na `main` do GitHub, no branch `refactor/clean-code`.
+
+**1. Resumo da análise**
+- `main.py` monta a API; as rotas ficam em `api/routes`.
+- O `Orchestrator` classifica a pergunta e chama o agente do domínio.
+- Os três agentes herdam de `BaseAgent`, que cuida da busca, da geração e da validação.
+- Os serviços cuidam da leitura dos arquivos, da busca BM25, dos provedores de IA e do log de interações.
+- O frontend é JavaScript puro, servido pela própria API.
+
+**2. Arquivos modificados**
+
+| Arquivo | O que mudou |
+|---|---|
+| `agents/base.py` | Funções compartilhadas pelos agentes; montagem do prompt em função própria; uma única resposta de reserva, antes repetida 3 vezes |
+| `agents/financial_agent.py` | Regras do roteamento com nome; soma e percentual em funções; `dataclasses.replace` no lugar de 5 cópias manuais de filtros; departamento e categoria em funções próprias |
+| `agents/ombudsman_agent.py` | Contagem dividida em "filtrar" e "resumir"; listas oficiais em constante |
+| `agents/orchestrator.py` | Cada regra avaliada uma vez, antes eram duas; resposta dividida em dois casos claros |
+| `agents/internal_info_agent.py`, `core/config.py`, `api/routes/chat.py`, `services/retrieval_service.py` | Constantes no lugar de números soltos, leitura de configuração mais legível, cálculo de tempo num lugar só, palavra duplicada removida |
+| `scripts/anonimizar_conversa.py` | Variável global virou parâmetro |
+| `README.md` | Tabela "Onde fazer manutenções", com o arquivo e o trecho para cada tipo de ajuste |
+
+**3. Melhorias**
+- Removi 5 duplicações; a maior era um bloco de resposta idêntico nos agentes Financeiro e Ouvidoria.
+- As expressões regulares do agente Financeiro ganharam nome.
+- Funções longas foram divididas.
+- Funções públicas ganharam docstrings curtas, que dizem o que recebem e o que devolvem.
+
+**4. Funcionalidades preservadas**
+- Rotas, contratos JSON, cálculos, textos das respostas, validações e o log de interações não mudaram.
+- O frontend ficou intocado: todas as funções e estilos estão em uso, e mexer nele mudaria a estrutura da página sem ganho real.
+
+**5. Testes executados**
+- Compilação ok e **102 testes passando**.
+- Retrato das saídas, antes e depois: **idêntico**. Cobre 87 perguntas no chat e na classificação, erros HTTP, cabeçalhos, 7 cenários com IA simulada, log de interações e funções isoladas.
+- **Teste de mutação:** mudei de propósito um limiar de 0,40 para 0,41 e o retrato acusou 16 diferenças. A comparação detecta mudanças.
+- O anonimizador gerou exatamente os mesmos arquivos de saída.
+- A avaliação continua em 32/32, 23/23, 27/27 e 10/10.
+- No navegador, a mesma conversa de 8 perguntas, com uma falha de rede simulada, produziu o mesmo HTML: 19.122 caracteres.
+
+**6. Pontos de atenção**
+
+Comportamentos que já existiam e que mantive, porque mudá-los alteraria o sistema:
+- **Mais de um departamento citado:** se a pergunta citar dois (por exemplo, "Comercial e Tecnologia"), vale o último em ordem alfabética. O ideal seria pedir esclarecimento.
+- **Dependência entre agentes:** a Ouvidoria usa a leitura de período que está dentro do agente Financeiro. Mover para um módulo próprio é seguro, mas muda os caminhos de importação; deixei como estava.
+- **Filtros por palavra parcial na Ouvidoria:** por exemplo, "conclui" é aceito para "Concluído". É uma heurística que pode casar com palavras parecidas.
+- **Pendências da entrega:** continua valendo o que falei antes. O repositório parece estar privado e o resultado do CI do Docker não foi conferido. Vale olhar a aba Actions antes de enviar.
+
+### Usuário · 2026-10-20 20:47:41
+
+<pasted_content id="3b2a">
+IMPLEMENTAÇÃO DO MENU INTELIGENTE DE PERGUNTAS — AURORA IA
+Objetivo
+Evolua a aplicação Aurora existente para que o usuário possa escolher entre três domínios de atendimento — Financeiro, Informações Internas e Ouvidoria — e, em seguida, visualizar perguntas sugeridas que correspondam às informações realmente disponíveis nas bases de conhecimento fornecidas.
+O usuário também deve poder escrever uma pergunta livre. Nesse caso, a Aurora deverá identificar sua intenção, verificar se existem perguntas conhecidas semelhantes e confirmar o entendimento quando necessário.
+Implemente essa funcionalidade diretamente no projeto existente, preservando a identidade visual atual e o funcionamento dos três agentes especializados.
+1. Tela inicial
+Mantenha a tela inicial atual da Aurora, incluindo:
+
+* A apresentação do assistente.
+* Os três agentes especializados.
+* A descrição das responsabilidades de cada agente.
+* A área principal de conversa.
+* O estilo visual atual, com fundo claro, azul-escuro e detalhes coloridos discretos.
+
+Os três domínios devem ser clicáveis:
+
+1. Financeiro: receitas, despesas, orçamentos e indicadores.
+2. Informações Internas: políticas, procedimentos, RH, TI e segurança.
+3. Ouvidoria: manifestações, reclamações, protocolos e status.
+
+Ao clicar em um domínio, o usuário deve entrar no modo de atendimento correspondente.
+2. Menu de perguntas dinâmicas
+Após a escolha do domínio, apresente uma área com perguntas sugeridas relacionadas exclusivamente à base de conhecimento daquele agente.
+As perguntas devem ser carregadas ou geradas a partir dos arquivos e registros existentes, e não de uma lista fixa inventada no frontend.
+Financeiro
+Utilize os arquivos:
+
+* `financeiro/indicadores_e_regras.json`
+* `financeiro/lancamentos_financeiros.csv`
+* `financeiro/orcamento_mensal.csv`
+
+Exemplos de perguntas que podem ser sugeridas:
+
+* Quanto foi gasto em despesas pagas em determinado período?
+* Qual departamento tem o maior orçamento em um mês específico?
+* Qual foi a soma das receitas registradas em determinado ano?
+* Como está a execução orçamentária de um departamento?
+* Quais despesas estão pendentes?
+* Qual é o valor total de despesas por categoria?
+
+As sugestões devem corresponder a consultas que possam ser efetivamente executadas com os campos e registros disponíveis.
+Informações Internas
+Utilize os documentos Markdown e o arquivo `informacoes_internas/faq_interno.json`.
+Exemplos de perguntas:
+
+* Como solicito férias?
+* Qual é o prazo para enviar um reembolso?
+* Quais aprovações são necessárias para uma compra?
+* Como reportar um e-mail de phishing?
+* Como solicitar acesso a um sistema?
+* O que fazer em caso de incidente de segurança?
+* Como funciona a política de home office?
+
+Apresente apenas perguntas compatíveis com o conteúdo dos documentos disponíveis.
+Ouvidoria
+Utilize os arquivos:
+
+* `ouvidoria/referencia_ouvidoria.json`
+* `ouvidoria/manifestacoes.csv`
+
+Exemplos de perguntas:
+
+* Qual é o status de um protocolo?
+* Quais status podem aparecer na Ouvidoria?
+* Quais categorias de manifestação existem?
+* Quantas manifestações estão em análise?
+* Quais manifestações aguardam uma área responsável?
+* Quantas manifestações foram registradas em determinado período?
+
+Quando uma consulta exigir um protocolo, solicite o identificador ao usuário, caso ele ainda não tenha sido informado.
+Não invente protocolos, registros ou informações ausentes na base.
+3. Perguntas sugeridas e interação
+As perguntas sugeridas devem aparecer como cartões ou botões clicáveis.
+Ao clicar em uma pergunta, o sistema deverá iniciar o fluxo de atendimento correspondente, preenchendo a intenção selecionada e solicitando os parâmetros que estiverem faltando.
+Exemplo:
+O usuário seleciona Financeiro e clica em "Quanto foi gasto em despesas pagas em determinado período?".
+A Aurora deverá perguntar qual período deseja consultar, caso essa informação não tenha sido fornecida.
+Depois de obter os dados necessários, deverá executar a consulta na fonte financeira autorizada e apresentar o resultado.
+Não transforme cada pergunta sugerida em uma resposta estática. As sugestões devem iniciar consultas reais ou recuperação de informações nas bases existentes.
+4. Campo para perguntas livres
+Além das sugestões, disponibilize um campo de texto com o placeholder:
+"Digite sua pergunta ou descreva o que você precisa saber..."
+O usuário deverá poder escrever qualquer pergunta, sem precisar utilizar exatamente os termos dos exemplos.
+Ao enviar a mensagem, a Aurora deverá:
+
+1. Identificar a intenção.
+2. Considerar o domínio selecionado e o contexto da conversa.
+3. Verificar se a pergunta pertence ao domínio atual.
+4. Identificar perguntas conhecidas semanticamente semelhantes.
+5. Verificar se há informações suficientes para responder.
+6. Encaminhar a pergunta diretamente quando estiver clara.
+7. Solicitar confirmação quando houver ambiguidade relevante.
+8. Pedir esclarecimentos quando faltarem informações necessárias.
+
+Se a pergunta pertencer claramente a outro domínio, ofereça a possibilidade de mudar para o agente correto, preservando o texto original da pergunta.
+Se o usuário ainda não tiver selecionado um domínio, a Aurora poderá identificar automaticamente o domínio provável e pedir confirmação quando necessário.
+5. Confirmação inteligente de intenção
+Implemente uma etapa de confirmação para perguntas que possam ter mais de uma interpretação.
+Exemplo:
+Usuário:
+"Quanto a empresa gastou em janeiro?"
+Aurora:
+"Você quer consultar o total de despesas pagas, o orçamento dos departamentos ou as receitas recebidas em janeiro?"
+Depois da escolha, solicite apenas os dados restantes, como o ano.
+Se o usuário confirmar que deseja consultar as despesas pagas em janeiro de 2026, encaminhe a consulta com os seguintes critérios:
+
+* Tipo do lançamento: `Despesa`.
+* Status: `Pago`.
+* Data de competência: janeiro de 2026, salvo se o usuário especificar outro critério temporal.
+* Campo de valor: `valor_brl`.
+
+Utilize cálculos determinísticos para obter o total. Converta os valores para um tipo decimal adequado, evitando erros de precisão financeira.
+Não apresente uma confirmação se a pergunta já estiver suficientemente clara e não houver ambiguidade relevante.
+6. Integração real com as bases
+Utilize os arquivos fornecidos como fontes de dados da aplicação.
+Siga as orientações:
+
+* Financeiro: utilize consultas SQL ou processamento determinístico para somas, filtros, agrupamentos e indicadores.
+* Informações Internas: utilize busca semântica nos documentos Markdown e no FAQ, mantendo a referência ao documento de origem.
+* Ouvidoria: utilize filtros estruturados e busca exata por protocolo, status, categoria e data.
+* Não permita que o modelo gere e execute SQL arbitrário sem validação.
+* Não invente resultados quando uma consulta não retornar registros.
+* Informe a fonte utilizada na resposta sempre que possível.
+* Trate os dados do pacote como sintéticos, conforme indicado na documentação.
+
+Se a aplicação já possuir banco de dados, API ou mecanismo de recuperação documental, integre-se à infraestrutura existente em vez de criar uma implementação paralela desnecessária.
+7. Experiência durante a conversa
+Após o usuário selecionar uma pergunta, mantenha o domínio ativo e apresente a conversa no mesmo espaço de atendimento.
+Inclua:
+
+* Indicação visual do agente selecionado.
+* Histórico de mensagens.
+* Perguntas sugeridas relacionadas ao domínio.
+* Campo para escrever novas perguntas.
+* Opção para voltar à seleção dos agentes.
+* Mensagens de confirmação com alternativas clicáveis.
+* Mensagens de esclarecimento curtas e objetivas.
+* Identificação das fontes utilizadas nas respostas.
+
+Depois de responder, permita que o usuário continue fazendo perguntas relacionadas sem precisar selecionar novamente o agente.
+Não faça a interface parecer um formulário rígido. As sugestões devem facilitar a utilização, sem limitar a liberdade de perguntar.
+8. Organização e manutenção
+Analise a arquitetura existente antes de implementar.
+
+* Reutilize os componentes e serviços existentes.
+* Mantenha a separação entre frontend, orquestrador e agentes especializados.
+* Evite duplicar perguntas manualmente em vários arquivos.
+* Mantenha as sugestões sincronizadas com as bases disponíveis.
+* Se necessário, implemente um serviço que forneça as perguntas sugeridas por domínio.
+* Trate erros de carregamento, consultas sem resultados e falhas de comunicação.
+* Preserve as funcionalidades que já estão operacionais.
+
+Não altere tecnologias ou reconstrua o sistema do zero sem necessidade.
+9. Testes de aceitação
+Verifique se:
+
+1. O usuário consegue selecionar qualquer um dos três domínios.
+2. Cada domínio exibe somente perguntas pertinentes à sua base.
+3. As perguntas sugeridas são clicáveis e iniciam o fluxo correto.
+4. O usuário pode escrever perguntas livres.
+5. Perguntas semanticamente equivalentes são compreendidas.
+6. Perguntas ambíguas geram uma confirmação contextual.
+7. Informações faltantes são solicitadas sem repetir perguntas já respondidas.
+8. A Aurora utiliza as fontes autorizadas e identifica os documentos utilizados.
+9. Consultas financeiras produzem resultados calculados a partir dos dados reais do pacote.
+10. Protocolos inexistentes não são inventados.
+11. O usuário consegue mudar de domínio sem perder desnecessariamente o contexto.
+12. A interface permanece responsiva e consistente com o design atual.
+
+Resultado esperado
+Entregue a funcionalidade completa no projeto existente: seleção de domínio, perguntas sugeridas baseadas nas fontes disponíveis, campo de pergunta livre, interpretação semântica, confirmação de intenção, coleta dos parâmetros necessários e encaminhamento para o agente especializado.
+Implemente nos arquivos reais do projeto, teste os principais fluxos e apresente um resumo dos arquivos alterados e dos resultados verificados.
+</pasted_content id="3b2a">
+
+### Usuário · 2026-10-20 20:50:26
+
+[Request interrupted by user]
+
+### Claude · 2026-10-20 23:04:51
+
+No response requested.
+
+### Usuário · 2026-10-20 23:20:20
+
+Continue de onde parou
+
+### Claude · 2026-10-20 23:29:34
+
+Retomo a implementação do menu inteligente de perguntas. Antes de escrever código, reviso o estado atual do frontend e confirmo que a `main` está limpa.
+
+### Usuário · 2026-10-20 23:29:34
+
+[Request interrupted by user]
+
+### Usuário · 2026-10-20 23:29:43
+
+Continue
+
+### Claude · 2026-10-20 23:29:48
+
+Continuo de onde parei: implementar o menu inteligente de perguntas.
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `Bash`: Create feature branch and inspect schemas
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\models\schemas.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\models\schemas.py
+
+- ferramenta `Bash`: Show schemas imports and tail
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\models\schemas.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\models\schemas.py
+
+
+- ferramenta `Bash`: Update agents for guided conversation and run tests
+
+### Claude · 2026-10-20 23:30:41
+
+Nada foi gravado: o script parou antes de salvar, por causa de escape de `\b` no heredoc. Faço as edições com o Edit:
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\financial_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\ombudsman_agent.py
+
+
+- ferramenta `Write`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\intents.py
+
+
+- ferramenta `Bash`: Smoke-test generated suggestions against the agents
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\intents.py
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+
+- ferramenta `Write`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\assistant.py
+
+
+- ferramenta `Write`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\api\routes\chat.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\main.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\main.py
+
+- ferramenta `Bash`: Show interaction log record method
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\services\interaction_log.py
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\services\interaction_log.py
+
+- ferramenta `Bash`: Run tests and exercise the assist flows end to end
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\agents\intents.py
+
+- ferramenta `Write`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\tests\test_assistant.py
+
+- ferramenta `Bash`: Run the new acceptance tests
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\backend\app\services\retrieval_service.py
+
+- ferramenta `Bash`: Run all tests and evaluation after stopword change
+
+### Claude · 2026-10-20 23:34:43
+
+Backend pronto: 127 testes passando (25 novos de aceitação) e avaliação antiga inalterada. Só falta o teste que depende do frontend. Faço o commit desta parte e sigo para a interface.
+
+- ferramenta `Bash`: Commit backend part of the feature
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+
+- ferramenta `Bash`: Show current layout markup to rewrite
+
+- ferramenta `Bash`: Rewrite layout markup with clickable agents and dynamic areas
+
+### Claude · 2026-10-20 23:35:21
+
+Agora o CSS: os botões dos agentes, com estado ativo na cor do domínio, e os elementos novos, sempre com os tokens da identidade atual.
+
+- ferramenta `Bash`: Locate CSS rules to update
+
+- ferramenta `Bash`: Show exact CSS blocks before editing
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Bash`: Find notice and composer rules
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+
+- ferramenta `Bash`: Print parts of current app.js
+
+- ferramenta `Bash`: Print buildAnswer and request-to-end of app.js
+
+- ferramenta `Bash`: Print buildError function
+
+### Claude · 2026-10-20 23:36:53
+
+Agora as edições no `app.js`, em blocos:
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+### Claude · 2026-10-20 23:37:58
+
+Falta um detalhe: a faixa de sugestões precisa aparecer quando a primeira mensagem é enviada. Ajusto o `addUser`, confiro a sintaxe e testo no navegador.
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `Bash`: Check JS syntax and run tests
+
+### Claude · 2026-10-20 23:38:12
+
+JS válido e **128 testes passando**, inclusive o que garante que o frontend não tem perguntas fixas. Subo o app e testo no navegador.
+
+- ferramenta `mcp__ccd_turn__update_plan`
+
+- ferramenta `mcp__Claude_Browser__preview_start`
+
+- ferramenta `mcp__Claude_Browser__resize_window`
+
+- ferramenta `mcp__Claude_Browser__browser_batch`
+
+### Claude · 2026-10-20 23:38:25
+
+A tela inicial manteve a identidade e agora tem os três agentes clicáveis. Clico no Financeiro:
+
+- ferramenta `mcp__Claude_Browser__find`: domain-card Agente Financeiro
+
+- ferramenta `mcp__Claude_Browser__browser_batch`
+
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+### Claude · 2026-10-20 23:38:49
+
+A automação não encontrou a resposta. Pode ser minha espera ou um erro na página; vejo a tela:
+
+- ferramenta `mcp__Claude_Browser__computer`
+
+- ferramenta `mcp__Claude_Browser__read_console_messages`
+
+### Claude · 2026-10-20 23:38:55
+
+A página mostra "Não foi possível conectar", e o console não tem erro. Olho a requisição de rede:
+
+- ferramenta `mcp__Claude_Browser__read_network_requests`
+
+- ferramenta `mcp__Claude_Browser__preview_logs`
+
+### Claude · 2026-10-20 23:39:02
+
+Nenhum `POST /api/assist` chegou ao servidor. O erro acontece no navegador, antes do envio. Reproduzo a chamada direto no console para ver a exceção:
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__tabs_context`
+
+- ferramenta `mcp__Claude_Browser__preview_list`
+
+
+- ferramenta `mcp__Claude_Browser__preview_start`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+### Claude · 2026-10-20 23:39:32
+
+A chamada direta funciona (200). Repito o clique na sugestão, agora capturando qualquer exceção durante a chamada da página:
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\js\app.js
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+### Claude · 2026-10-20 23:39:54
+
+Agora repito o fluxo completo pela interface:
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+### Claude · 2026-10-20 23:40:14
+
+Os dois fluxos funcionam pela interface, com os valores calculados nos CSVs. A faixa com as 12 sugestões aparece acima do campo durante a conversa. Vejo como ficou visualmente:
+
+- ferramenta `mcp__Claude_Browser__computer`
+
+### Claude · 2026-10-20 23:40:19
+
+As últimas mensagens aparecem esmaecidas na captura. Pode ser só o quadro da transição de entrada, como antes com o painel oculto, ou um problema real. Confiro a opacidade calculada:
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__tabs_context`
+
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+
+- ferramenta `mcp__Claude_Browser__resize_window`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__computer`
+
+
+- ferramenta `Bash`: Locate route line CSS
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `Edit`: <HOME>\OneDrive\Documentos\Vscode\.github\adeco\frontend\css\styles.css
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `Bash`: Check route CSS on disk and served
+
+### Claude · 2026-10-20 23:41:51
+
+O servidor já entrega o CSS novo; o navegador usou a versão em cache. Forço o recarregamento:
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+- ferramenta `mcp__Claude_Browser__javascript_tool`
+
+### Claude · 2026-10-20 23:42:05
+
+Corrigido: o ícone e o texto ficam na mesma linha, sem rolagem horizontal. Volto o viewport ao normal, rodo testes e avaliação, e atualizo a documentação.
+
+- ferramenta `mcp__Claude_Browser__resize_window`
+
+- ferramenta `mcp__Claude_Browser__read_console_messages`
+
+- ferramenta `Bash`: Run tests, evaluation and independent value check
+
+### Claude · 2026-10-20 23:42:20
+
+Os valores conferem com o cálculo independente (R$ 134.103,47 em 11 lançamentos), o console está limpo, os 128 testes passam e a avaliação continua em 100%. Agora a documentação:
+
+- ferramenta `Bash`: Find README places to update
+
+- ferramenta `Bash`: Show README snippets to edit
+
+- ferramenta `Bash`: Document the guided conversation in README
+
+### Claude · 2026-10-20 23:42:55
+
+README atualizado (a mudança no arquivo é do meu script). Agora o diário, exigido pelo `AGENTS.md`, e o registro manual da conversa. Depois, commit, merge e push.
+
+- ferramenta `Bash`: Update diary and record, commit, merge and push
+
+- ferramenta `mcp__ccd_turn__wrap_up`
+
+### Claude · 2026-10-20 23:43:49
+
+O menu inteligente de perguntas está pronto e publicado na `main` do GitHub (branch `feat/menu-inteligente`, 2 commits). **128 testes passam**, 25 deles novos e de aceitação, a avaliação antiga continua em 100% e testei os fluxos principais no navegador, no desktop e no celular.
+
+**Como ficou**
+- **Agentes clicáveis:** na barra lateral, nos chips do celular e em cartões na tela inicial. O cabeçalho da conversa mostra o agente ativo e o botão **Trocar agente**, que volta ao modo em que a Aurora escolhe o agente sozinha. O histórico é mantido ao trocar.
+- **Sugestões geradas das bases**, nada fixo no frontend (as 6 perguntas que estavam no HTML foram removidas). São 31 no total:
+  - **Financeiro (12):** consultas que os CSVs permitem executar, mais um "O que significa…" para cada indicador do JSON.
+  - **Informações Internas (11):** todas as perguntas da FAQ, mais uma por documento que a FAQ não cobre.
+  - **Ouvidoria (8):** listas do arquivo de referência e consultas sobre as manifestações.
+- **Parâmetros pedidos com opções dos dados:** anos, meses, departamentos e status. Para protocolo não há opções, para nunca sugerir números.
+- **Confirmação de intenção:** "Quanto a empresa gastou em janeiro?" leva a *Despesas pagas*, *Orçamento aprovado* ou *Receitas recebidas*, e depois só ao ano. O resultado é **R$ 54.778,07** para janeiro de 2026, com o critério Despesa, Pago, competência de janeiro e `valor_brl` em decimal. Conferi o valor à parte direto no CSV.
+- **Pergunta clara vai direto,** sem confirmação. Pergunta de outro domínio gera a oferta de troca, mantendo o texto. Protocolo inexistente dá "não encontrado", sem inventar.
+
+**Arquivos alterados**
+
+| Arquivo | O quê |
+|---|---|
+| `backend/app/agents/intents.py` (novo) | Catálogo de sugestões e parâmetros gerado dos dados |
+| `backend/app/agents/assistant.py` (novo) | Conversa guiada: troca de domínio, confirmação e coleta de parâmetros |
+| `backend/app/api/routes/chat.py` | `POST /api/assist` e `GET /api/suggestions`; o `/api/chat` não mudou |
+| `backend/app/models/schemas.py`, agentes, `retrieval_service.py`, `interaction_log.py`, `main.py` | Contratos novos, sinalização de dado faltante, sinônimos ("pagamos", "recebemos") e log das novas mensagens |
+| `frontend/index.html`, `css/styles.css`, `js/app.js` | Agentes clicáveis, cabeçalho, sugestões, faixa acima do campo, alternativas clicáveis e o placeholder pedido |
+| `backend/tests/test_assistant.py` (novo), `README.md`, diário, registro manual | Testes de aceitação e documentação |
+
+**Problemas encontrados no teste e corrigidos**
+- **Toda pergunta dava "Não foi possível conectar":** era uma colisão de nomes de variável no JavaScript, que só aparece na execução. Descobri interceptando as chamadas na página.
+- **"Como faço para tirar férias?" não era entendida:** o verbo "tirar" atrapalhava a busca.
+- **Celular:** a linha "Conversa com o Agente…" quebrava o ícone e o texto em linhas separadas.
+
+**Pontos de atenção**
+- **Erro ao carregar as sugestões:** a mensagem para esse caso não foi testada no navegador, porque não consegui simular a falha só dessa rota.
+- **Memória da conversa:** guarda o agente ativo e o dado que está sendo pedido. Continuação de assunto não funciona: "e em fevereiro?" depois de uma resposta sobre janeiro não é entendido.
+- **Frases muito diferentes das bases** ("trabalhar de casa") podem não ser reconhecidas. Nesse caso a Aurora mostra as perguntas que sabe responder.
+- **Servidor parado durante os testes:** você parou o servidor no meio (o painel fechou). Reiniciei para terminar.
+- **Pendências da entrega:** o repositório parece privado e o resultado do CI do Docker na aba Actions continua sem conferência.
+
+### Usuário · 2026-10-20 23:58:46
+
+Sim, exporte a conversa de novo, anonimize com o mesmo script e publique no repositório.
