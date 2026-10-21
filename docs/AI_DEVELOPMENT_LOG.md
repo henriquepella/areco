@@ -441,3 +441,8 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   0 ocorrências de pasta do usuário, e-mail e identificador da conta; sobras inofensivas explicadas
   (`gmail\.com` em uma regex de varredura e o nome genérico da pasta `Claude-Data`); JSONL válido,
   24/24 imagens, 13/13 mensagens do usuário presentes. As versões antigas continuam no histórico do Git.
+- **Decisão do usuário sobre o histórico do Git:** *"Não reescreva o histórico; os trechos antigos são
+  de baixa sensibilidade."* **Rejeitada** a reescrita (`git filter-repo` + force-push). As versões
+  antigas da exportação (commits `db487cb`, `283becd`, `688b8c4`, `6212757`) continuam no histórico com
+  o nome da pasta do usuário no Windows e o início de um identificador de pasta do aplicativo; a versão
+  atual da exportação está limpa.
