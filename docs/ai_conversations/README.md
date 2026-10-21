@@ -38,8 +38,10 @@ ferramentas e capturas de tela dos testes no navegador.
 O script termina com erro se o e-mail, a pasta do usuário ou outros termos bloqueados
 sobrarem na saída. Nenhuma chave de API ou token foi usado no desenvolvimento.
 
-**Versão atual:** exportação refeita em 2026-10-20 depois do menu inteligente de perguntas. Ela
+**Versão atual:** exportação refeita em 2026-10-20 depois das correções da revisão externa. Ela
 cobre todos os pedidos da sessão, do enunciado inicial ao pedido de atualizar esta exportação
-(3.326 entradas exportadas, 1.389 mantidas). **Limite:** a exportação é feita antes da mensagem
+(3.766 entradas exportadas, 1.565 mantidas). Esta versão também corrige um
+vazamento das anteriores: caminhos da pasta do usuário escritos dentro de comandos citados na
+conversa (com barras duplicadas ou sem letra de drive) não eram substituídos. **Limite:** a exportação é feita antes da mensagem
 final do assistente nesse último pedido, que por isso não aparece nela. O `.zip` original, sem anonimização, fica só
 na máquina do autor.

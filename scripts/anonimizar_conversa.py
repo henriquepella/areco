@@ -42,7 +42,7 @@ def scrub_text(text: str, user: str, banned: re.Pattern | None = None) -> str:
         text = rx.sub(lambda m: "<HOME>" if m.group(1).lower() == user.lower() else m.group(0), text)
     # Também com separadores repetidos, sem letra de drive ou seguido de pontuação
     # (ex.: "C:\\Users\\nome:" ou users\\nome dentro de comandos citados na conversa).
-    text = re.sub(rf"(?i)(?:\b[a-z]:)?[\\/]*\busers(?:[\\/]+|-){re.escape(user)}(?![a-z0-9_])", "<HOME>", text)
+    text = re.sub(rf"(?i)(?:\b[a-z]:)?[\\/]*\busers(?:[\\/]+|-)?{re.escape(user)}(?![a-z0-9_])", "<HOME>", text)
     text = ACCOUNT_DIR_RE.sub("<conta>", text)
     if banned is not None:  # por último: o que sobrar dos termos da conta pessoal
         text = banned.sub("[termo removido]", text)
