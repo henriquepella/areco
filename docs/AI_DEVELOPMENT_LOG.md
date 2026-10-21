@@ -512,3 +512,23 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   "Avaliação com modelo de linguagem" (com o link da execução e o novo comportamento do workflow) e
   contagem do CI (27 execuções de `ci.yml`, todas com sucesso, conferidas pela API pública).
 - **Testes executados:** `python -m pytest` → `141 passed in 9.84s` (só documentação mudou nesta parte).
+
+### 2026-10-20 — Etapa 20: exportação da conversa atualizada (branch `docs/conversation-export-v4`)
+- **Ferramenta:** Claude Code (Claude Opus 5.5).
+- **Prompt:** "Sim, exporte a conversa de novo, anonimize com o mesmo script e publique no repositório."
+- **Feito:** exportação pelo próprio app (`export_transcript`, 4.851 entradas) →
+  `scripts/anonimizar_conversa.py` com os mesmos parâmetros da versão anterior → 1.963 entradas.
+  Script: "nenhum termo proibido encontrado".
+- **Problemas e correções:** a verificação à parte achou o fragmento `profic` (nome de um plugin da
+  conta pessoal cortado numa saída de comando citada na conversa). **Modificado:** o fragmento entrou na
+  lista de bloqueio e a anonimização foi refeita → 0 ocorrências. Sobras conferidas uma a uma e
+  inofensivas: a palavra "gmail" nos meus comandos de auditoria e numa regex de varredura (nunca o
+  e-mail), o nome genérico da pasta `Claude-Data`, `tiktoken` citado na documentação da API e
+  `sk-ant` só como padrão de busca ou chave fictícia dos testes.
+- **Verificação:** pasta do usuário com qualquer separador → 0; padrões de chave real
+  (`sk-ant-` com 20+ caracteres, `sk-` com 32+, `ghp_`) → 0; JSONL válido, 25/25 imagens; mensagens
+  do usuário presentes, da primeira ("DESAFIO TÉCNICO") à mais recente ("creditos estao baixos" e o
+  pedido desta exportação). O README da pasta deixou de dizer que nenhuma chave foi usada: a chave do
+  workflow foi cadastrada pelo usuário como secret do GitHub, sem passar pela sessão.
+- **Limite:** como antes, a exportação é feita antes da mensagem final deste pedido.
+- **Testes executados:** `python -m pytest` → `141 passed in 9.81s`.

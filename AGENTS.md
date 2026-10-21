@@ -36,6 +36,7 @@ Etapas registradas no diário:
 | 17 | Correções de uma revisão externa: CI confirmado, validação separada, testes HTTP dos provedores, anonimizador |
 | 18 | Preparação para envio |
 | 19 | Avaliação com modelo real: workflow que falha quando o modelo não responde; tentada e não concluída por falta de crédito |
+| 20 | Exportação da conversa atualizada |
 
 ## Regras de registro (obrigatórias)
 
