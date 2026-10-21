@@ -61,10 +61,11 @@ e sempre mostram o domínio usado e as fontes consultadas.
 - **Modo com modelo de linguagem:** implementado para Anthropic e APIs compatíveis com OpenAI.
   A integração foi testada pelo **protocolo HTTP real** contra um servidor local que imita as duas
   APIs (`tests/test_llm_http.py`: o SDK oficial monta e envia a requisição, a resposta passa pelas
-  barreiras contra invenção, recusas e erros caem no modo extrativo). **A qualidade das respostas
-  de um modelo real ainda não foi medida:** não havia chave de API nem Ollama na máquina de
-  desenvolvimento. Para medir, há um workflow manual que usa a chave cadastrada como secret
-  (ver [Avaliação com modelo](#avaliação-com-modelo-de-linguagem)).
+  barreiras contra invenção, recusas e erros caem no modo extrativo). **A avaliação com um modelo
+  real não foi realizada nesta entrega**: nenhuma chave de API foi usada no desenvolvimento e não
+  havia Ollama na máquina. Todos os resultados publicados são do modo sem modelo. Quem tiver uma
+  chave pode fazer a medição com o workflow manual descrito em
+  [Avaliação com modelo](#avaliação-com-modelo-de-linguagem).
 - **Docker:** não foi executado na máquina de desenvolvimento (sem Docker instalado), mas
   **está verificado no CI**: o workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) segue
   o README num runner Linux do GitHub — `cp .env.example .env`, `docker compose up --build`,
@@ -576,7 +577,8 @@ entendimento de sinônimos, que é o papel do modelo de linguagem.
 
 ### Avaliação com modelo de linguagem
 
-Sem chave na máquina de desenvolvimento, a medição com um modelo real fica a um clique:
+Não realizada nesta entrega (sem chave de API). Para quem tiver uma chave, a medição com um
+modelo real fica a um clique:
 
 1. No GitHub: *Settings → Secrets and variables → Actions → New repository secret*, nome
    `LLM_API_KEY`, valor = chave da Anthropic.

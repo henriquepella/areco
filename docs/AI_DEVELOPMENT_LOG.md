@@ -446,3 +446,7 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   antigas da exportação (commits `db487cb`, `283becd`, `688b8c4`, `6212757`) continuam no histórico com
   o nome da pasta do usuário no Windows e o início de um identificador de pasta do aplicativo; a versão
   atual da exportação está limpa.
+- **Decisão do usuário sobre a avaliação com modelo real:** não cadastrar a chave da Anthropic.
+  A avaliação com modelo real fica registrada como **não realizada nesta entrega**; todos os números
+  publicados são do modo sem modelo. O workflow manual `llm-eval.yml` e as instruções do README ficam
+  disponíveis como opção para quem tiver uma chave.
