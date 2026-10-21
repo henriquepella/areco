@@ -23,7 +23,7 @@ STOPWORDS = {
     "sim", "the", "of", "favor", "gostaria", "saber", "preciso", "posso", "pode", "devo",
     "fazer", "faco", "faz", "houver", "acontece", "acontecer", "caso", "algum", "alguma",
     # verbos genéricos de pedido ("como faço para tirar férias?"): não dizem o assunto
-    "tirar", "obter", "conseguir", "consigo", "quero", "queria",
+    "tirar", "obter", "conseguir", "consigo", "quero", "queria", "pedir",
 }
 
 
@@ -52,6 +52,7 @@ class SearchHit:
     chunk: Chunk
     score: float
     coverage: float  # fração do peso IDF dos termos da pergunta presente no trecho
+    terms: frozenset[str] = frozenset()  # termos da pergunta encontrados no trecho
 
 
 class BM25Index:
@@ -83,7 +84,7 @@ class BM25Index:
                 score += self.idf[t] * f * (self.k1 + 1) / (
                     f + self.k1 * (1 - self.b + self.b * dl / self.avgdl))
             coverage = sum(self.idf[t] for t in matched) / total_idf
-            hits.append(SearchHit(chunk, round(score, 4), round(coverage, 3)))
+            hits.append(SearchHit(chunk, round(score, 4), round(coverage, 3), frozenset(matched)))
         hits.sort(key=lambda h: h.score, reverse=True)
         return hits[:k]
 
@@ -94,6 +95,27 @@ class Retriever:
     def __init__(self, kb: KnowledgeBase):
         self.kb = kb
         self.indexes = {d: BM25Index(kb.chunks.get(d, [])) for d in DOMAINS}
+        self._title_terms = self._distinctive_title_terms()
+
+    def _distinctive_title_terms(self) -> dict[str, set[str]]:
+        """Termos do título de cada documento Markdown que não aparecem no título de nenhum
+        outro ("reembolso" em "Política de reembolso"; "política" é comum e fica de fora)."""
+        titles = {}
+        for chunks in self.kb.chunks.values():
+            for c in chunks:
+                if c.document.endswith((".md", ".txt")) and c.document not in titles:
+                    titles[c.document] = set(tokenize(c.text.split("\n", 1)[0].split(" — ")[0]))
+        count = Counter(t for terms in titles.values() for t in terms)
+        return {doc: {t for t in terms if count[t] == 1} for doc, terms in titles.items()}
+
+    def anchor_terms(self, hit: SearchHit) -> set[str]:
+        """Termos da pergunta que nomeiam o assunto do documento do trecho (pelo título).
+        Itens da FAQ usam o título do documento que citam ("documento: 02_politica_reembolso.md")."""
+        doc = hit.chunk.document
+        if doc not in self._title_terms:
+            m = re.search(r"documento: (\S+\.(?:md|txt))", hit.chunk.text)
+            doc = m.group(1) if m else doc
+        return set(hit.terms) & self._title_terms.get(doc, set())
 
     def search(self, domain: str, query: str, k: int = 4) -> list[SearchHit]:
         if domain not in self.indexes:

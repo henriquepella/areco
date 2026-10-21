@@ -1,0 +1,20 @@
+{
+  "descricao": "Conjunto de VALIDAÇÃO separado (held-out). Escrito pelo desenvolvedor em 2026-10-20, ANTES das correções da etapa 17 e NUNCA usado para ajustar regras, pesos, stopwords ou limiares. Serve só para medir. Perguntas em linguagem natural, como um avaliador digitaria. Valores esperados calculados direto dos CSVs com Decimal.",
+  "casos": [
+    {"id": "V01", "pergunta": "Preciso tirar uns dias de folga, como faço pra marcar minhas férias?", "dominio_esperado": "informacoes_internas", "fonte_esperada": "01_politica_ferias.md; faq_interno.json; 08_faq_rh.md", "status_esperado": "answered", "deve_conter": ["30 dias"]},
+    {"id": "V02", "pergunta": "Gastei com táxi numa visita a cliente. Até quando posso pedir o dinheiro de volta?", "dominio_esperado": "informacoes_internas", "fonte_esperada": "02_politica_reembolso.md; faq_interno.json", "status_esperado": "answered", "deve_conter": ["10 dias"]},
+    {"id": "V03", "pergunta": "Uma compra de 8 mil reais precisa de aprovação de quem?", "dominio_esperado": "informacoes_internas", "fonte_esperada": "03_aprovacao_de_compras.md; faq_interno.json", "status_esperado": "answered", "deve_conter": ["gerente"]},
+    {"id": "V04", "pergunta": "Recebi um e-mail estranho pedindo minha senha, o que eu faço?", "dominio_esperado": "informacoes_internas", "fonte_esperada": "04_seguranca_da_informacao.md; faq_interno.json", "status_esperado": "answered", "deve_conter": ["seguranca@aurora.example"]},
+    {"id": "V05", "pergunta": "Como consigo acesso ao sistema de RH?", "dominio_esperado": "informacoes_internas", "fonte_esperada": "05_manual_de_acessos.md; faq_interno.json", "status_esperado": "answered", "deve_conter": ["portal de TI"]},
+    {"id": "V06", "pergunta": "Quem eu aviso se o sistema cair?", "dominio_esperado": "informacoes_internas", "fonte_esperada": "07_fluxo_de_incidentes.md", "status_esperado": "answered", "deve_conter": ["portal de TI"]},
+    {"id": "V07", "pergunta": "Posso trabalhar de casa?", "dominio_esperado": "informacoes_internas", "fonte_esperada": "06_politica_home_office.md", "status_esperado": "answered", "deve_conter": ["contrato"]},
+    {"id": "V08", "pergunta": "Quanto a empresa faturou em 2026?", "dominio_esperado": "financeiro", "fonte_esperada": "lancamentos_financeiros.csv", "status_esperado": "answered", "deve_conter": ["R$ 386.174,82"]},
+    {"id": "V09", "pergunta": "Qual foi o total de despesas da Tecnologia em 2025?", "dominio_esperado": "financeiro", "fonte_esperada": "lancamentos_financeiros.csv", "status_esperado": "answered", "deve_conter": ["R$ 234.196,14"]},
+    {"id": "V10", "pergunta": "Quanto o Comercial tinha de orçamento em março de 2026?", "dominio_esperado": "financeiro", "fonte_esperada": "orcamento_mensal.csv", "status_esperado": "answered", "deve_conter": ["R$ 25.677,19"]},
+    {"id": "V11", "pergunta": "Tem alguma despesa atrasada?", "dominio_esperado": "financeiro", "fonte_esperada": "lancamentos_financeiros.csv", "status_esperado": "answered", "deve_conter": ["R$ 262.562,24"]},
+    {"id": "V12", "pergunta": "Em que pé está a manifestação OUV-0010?", "dominio_esperado": "ouvidoria", "fonte_esperada": "manifestacoes.csv", "status_esperado": "answered", "deve_conter": ["Aberto"]},
+    {"id": "V13", "pergunta": "Quantas reclamações de cobrança foram concluídas?", "dominio_esperado": "ouvidoria", "fonte_esperada": "manifestacoes.csv", "status_esperado": "answered", "deve_conter": ["8 manifestações"]},
+    {"id": "V14", "pergunta": "Quero fazer uma reclamação sobre um atendimento ruim", "dominio_esperado": "ouvidoria", "fonte_esperada": "referencia_ouvidoria.json", "status_esperado": "answered", "deve_conter": ["não registra"]},
+    {"id": "V15", "pergunta": "Qual é a cotação do dólar hoje?", "dominio_esperado": "indefinido", "fonte_esperada": null, "status_esperado": "out_of_scope", "deve_conter": []}
+  ]
+}

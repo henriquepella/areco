@@ -74,7 +74,14 @@ class Assistant:
 
     def _undefined(self, text: str, c) -> AssistResponse:
         candidates = [d for d, s in c.routing.scores.items() if s > 0]
-        if candidates:
+        if len(candidates) == 1:  # um só domínio provável, mas sem confiança: confirma
+            d = candidates[0]
+            resp = self._follow_up(text, None, f"Parece uma pergunta para o {self._agent_name(d)}. Quer que ele responda?",
+                                   FollowUp(kind="confirm_domain", options=[
+                                       Choice(label=f"Sim, perguntar ao {self._agent_name(d)}", question=text,
+                                              domain=d, confirmed=True),
+                                       *(Choice(label=self._agent_name(o), domain=o) for o in DOMAINS if o != d)]))
+        elif candidates:
             names = " ou o ".join(self._agent_name(d) for d in candidates)
             resp = self._follow_up(text, None, f"Sua pergunta pode ser para o {names}. Qual deles deve responder?",
                                    FollowUp(kind="confirm_domain", options=[

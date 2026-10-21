@@ -44,7 +44,10 @@ RULES: dict[str, list[tuple[str, float]]] = {
         (r"indicador|financeir", 1.5), (r"departamento", 1), (r"\b20(25|26)\b", 0.5),
     ],
     "informacoes_internas": [
-        (r"feria", 3), (r"reembolso", 2), (r"politica", 2), (r"procedimento|processo interno", 2),
+        (r"feria", 3), (r"reembolso", 2),
+        # pedir/prazo/procedimento de reembolso é política interna, mesmo citando "despesas"
+        (r"(pedi\w*|solicit\w*|envi\w*|prazo|procedimento|aprovac\w*).{0,30}reembolso"
+         r"|reembolso.{0,30}(procedimento|prazo|aprovac)", 3), (r"politica", 2), (r"procedimento|processo interno", 2),
         (r"\bcompras?\b", 2), (r"aprovac|alcada", 2), (r"seguranca|phishing|incidente", 3), (r"senha|credencia|token|mfa|multifator", 2),
         (r"\bacesso", 2), (r"home office|remoto|hibrido|teletrabalho", 3), (r"\brh\b|recursos humanos", 2),
         (r"holerite|beneficio|dados cadastrais", 3), (r"privacidade|lgpd", 2), (r"fechamento|conciliacao", 3),

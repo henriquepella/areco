@@ -101,8 +101,14 @@ class BaseAgent:
         hits = self.retriever.search(self.id, question, k=self.top_k * 4)
         if docs:
             hits = [h for h in hits if h.chunk.document in docs]
-        if not hits or hits[0].score < MIN_SCORE or hits[0].coverage < MIN_COVERAGE:
+        if not hits or hits[0].score < MIN_SCORE:
             return []
+        if hits[0].coverage < MIN_COVERAGE:
+            # Pergunta com muitas palavras de conversa: ainda vale se citar o assunto que dá nome
+            # a um documento (termo exclusivo do título, como "reembolso").
+            hits = [h for h in hits if self.retriever.anchor_terms(h)]
+            if not hits or hits[0].score < MIN_SCORE:
+                return []
         top = hits[0].score
         return [h for h in hits if h.score >= top * RELATIVE_CUTOFF][: self.top_k]
 

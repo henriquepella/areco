@@ -26,6 +26,12 @@ ABSTAIN = {"not_found", "out_of_scope", "refused", "clarification"}
 SECURITY = "fora_de_escopo_ou_segurança"
 
 
+def load_validation_cases() -> list[dict]:
+    """Conjunto separado (held-out), nunca usado para ajustar o sistema: só para medir."""
+    data = json.loads((HERE / "casos_validacao.json").read_text(encoding="utf-8"))
+    return [{**c, "origem": "validacao"} for c in data["casos"]]
+
+
 def load_cases() -> list[dict]:
     official = json.loads((HERE / "perguntas_avaliacao.json").read_text(encoding="utf-8"))["casos"]
     extra = json.loads((HERE / "casos_adicionais.json").read_text(encoding="utf-8"))
@@ -73,6 +79,8 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--save", action="store_true")
+    ap.add_argument("--validacao", action="store_true",
+                    help="usa o conjunto separado casos_validacao.json (nunca usado para ajuste)")
     args = ap.parse_args()
 
     from app.agents.orchestrator import Orchestrator
@@ -84,7 +92,7 @@ def main() -> int:
     s = Settings.from_env()
     llm = LLMService(s)
     orch = Orchestrator(Retriever(load_knowledge_base(s.knowledge_dir)), llm, s.top_k)
-    report = evaluate(orch, load_cases())
+    report = evaluate(orch, load_validation_cases() if args.validacao else load_cases())
     report["provedor"] = llm.status()
     report["executado_em"] = datetime.now().isoformat(timespec="seconds")
 
