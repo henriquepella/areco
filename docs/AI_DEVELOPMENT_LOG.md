@@ -388,3 +388,48 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   JSONL válido (1.389 linhas); 24/24 imagens decodificáveis; as 12 mensagens do usuário presentes;
   e-mails restantes são só os fictícios das bases/fixtures, o de atribuição de commit e falsos
   positivos de decorators Python (`@router.get`).
+
+### 2026-10-20 — Etapa 17: correções de uma revisão externa (branch `feat/natural-questions`)
+- **Prompt (resumo):** o usuário colou uma revisão de outra ferramenta com 4 prioridades: (1) Docker
+  nunca executado, confirmar o CI; (2) modo com IA nunca testado com provedor real; (3) perguntas
+  naturais falham e os 100% da avaliação são suspeitos (ajustes feitos no mesmo conjunto), criar um
+  conjunto separado; (4) identificador parcial e trecho de caminho do usuário no histórico/exportação.
+- **(1) Docker — verificado:** o repositório voltou a responder sem login; a API do GitHub mostra 13
+  execuções do CI, todas `success`. Na execução `39518745059` (main `621788e`) todas as etapas do job
+  Docker passaram (compose up --build, healthcheck, /health, frontend, /api/chat com R$ 275.727,70,
+  38 perguntas contra o container, volume de logs, pytest no container). Link citado no README.
+  **Aceita** a sugestão de citar o run como prova.
+- **(3) Perguntas naturais — protocolo para não contaminar a medição:** (a) escrito primeiro
+  `casos_validacao.json` (15 perguntas naturais, valores esperados calculados direto dos CSVs) e
+  medido **antes** de qualquer correção: roteamento 11/15, recuperação 7/14, fidelidade 7/14;
+  (b) correções guiadas **só** pelos dois exemplos da revisão; (c) medição final, sem ajustes depois
+  dela: 11/15, 9/14, 9/14. Sinônimos das perguntas da validação ("dinheiro de volta", "folga", "cair",
+  "trabalhar de casa", "e-mail estranho") **não** foram adicionados, de propósito.
+  - Causa 1: perguntas com muitas palavras de conversa derrubam a cobertura ponderada por IDF.
+    Correção: **âncora no título** — abaixo do limiar de cobertura, um trecho ainda vale se a
+    pergunta citar um termo exclusivo do título do documento (para itens da FAQ, o título do
+    documento citado). Termos presentes em vários títulos ("política") não contam: "política de
+    viagens internacionais" e "refeitório" continuam sem resposta (testado).
+  - Causa 2: "pedir" puxava a FAQ de acesso para o topo. "pedir" virou stopword.
+  - Causa 3: "Como pedir reembolso de despesas?" empatava financeiro × interno. Regra nova (peso 3):
+    pedir/solicitar/prazo/procedimento + reembolso → política interna.
+  - Achado durante a medição: com um único domínio provável, a Aurora perguntava "Qual deles deve
+    responder?". Texto corrigido ("Parece uma pergunta para o Agente X. Quer que ele responda?").
+- **(2) Modo com IA:** sem chave, Ollama ou Docker nesta máquina, não houve execução com modelo real
+  (**pendente**, depende do usuário). Feito: `tests/test_llm_http.py` sobe um servidor HTTP local que
+  imita a API de Mensagens da Anthropic e a API compatível com OpenAI; o SDK oficial monta e envia a
+  requisição, e a resposta passa pelas barreiras (citação inventada descartada, erro 500 e recusa →
+  modo extrativo, classificação pelo modelo quando as regras empatam). **Achado:** o SDK anthropic
+  1.x usa `httpx2`, que registrava cada requisição ao provedor no log em INFO; silenciado. Criado o
+  workflow manual `llm-eval.yml` (usa o secret `LLM_API_KEY`; não roda em push, para não gerar custo).
+- **(4) Privacidade:** a revisão estava certa sobre o trecho `users\henri`. Eram os meus próprios
+  comandos citados na conversa (`--banned "users\henri"` e um `echo "C:\Users\henri: ..."`): o
+  anonimizador exigia letra de drive e capturava o nome junto com a pontuação (`henri:`). Corrigido
+  (qualquer separador, com ou sem drive) e a checagem final do script passou a ignorar separadores.
+  **Problema na minha verificação:** a conferência anterior em Python dizia "0 ocorrências" porque o
+  escape de barras invertidas passando pelo shell estragou a regex; o `git grep` mostrava 11. As
+  verificações passaram a ser escritas em arquivo. Histórico do Git: versões antigas ainda contêm
+  esses trechos (commits `db487cb`, `283becd`, `688b8c4`, `6212757`); reescrever o histórico exige
+  force-push e fica para decisão do usuário.
+- **Testes executados:** `python -m pytest` → `141 passed in 9.65s`; `run_eval` → 32/32, 23/23,
+  27/27, 10/10; `run_eval --validacao` → 11/15, 9/14, 9/14, 1/1.
