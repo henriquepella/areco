@@ -65,6 +65,8 @@
 | 21 | CI confirmado (13/13); validação separada antes/depois (7/14 → 9/14 na recuperação); âncora no título; testes HTTP dos provedores; anonimizador corrigido. | 141 testes. | `feat/natural-questions` |
 | 22 | Histórico mantido (decisão do usuário); avaliação com modelo real registrada como não realizada. | — | `docs/history-decision`, `docs/llm-eval-not-run` |
 | 23 | Conferência final dos 9 itens no repositório público, log da conversa guiada, índice no `AGENTS.md`, exportação final. | 141 testes; links ok. | `docs/final-delivery` |
+| 24 | O usuário cadastrou o secret `LLM_API_KEY` (a chave nunca passou pela sessão). A 1ª execução do workflow ficou verde sem o modelo responder; o workflow passou a testar a conexão, falhar sem respostas do modelo e publicar o motivo como anotação. | 3 execuções; motivo final: falta de crédito na conta (HTTP 400). 141 testes. | `fix/llm-eval-diagnostics`, `fix/llm-error-message`, `docs/llm-eval-credit` |
+| 25 | Nova exportação da sessão, anonimizada com o mesmo script (mais um fragmento de nome de plugin na lista de bloqueio). | 1.963 entradas; nenhum termo bloqueado. | `docs/conversation-export-v4` |
 
 ## Sugestões consideradas e rejeitadas pela IA
 

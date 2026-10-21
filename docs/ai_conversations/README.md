@@ -36,11 +36,14 @@ ferramentas e capturas de tela dos testes no navegador.
 | Metadados (pasta de trabalho, branch, IDs de requisição, histórico de arquivos) | Metadados da máquina; o histórico real do código está no Git. |
 
 O script termina com erro se o e-mail, a pasta do usuário ou outros termos bloqueados
-sobrarem na saída. Nenhuma chave de API ou token foi usado no desenvolvimento.
+sobrarem na saída. Nenhuma chave de API ou token foi digitado, lido ou exibido na sessão: a chave
+do workflow manual de avaliação com modelo foi cadastrada pelo próprio usuário como secret do
+GitHub, e os testes usam só valores fictícios (`fixture-not-a-key`, `sk-ant-teste-123`).
 
-**Versão atual:** exportação refeita em 2026-10-20 na preparação para envio. Ela
-cobre todos os pedidos da sessão, do enunciado inicial ao pedido de atualizar esta exportação
-(4.066 entradas exportadas, 1.681 mantidas). Esta versão também corrige um
+**Versão atual:** exportação refeita em 2026-10-20, depois da tentativa de avaliação com modelo
+real. Ela cobre todos os pedidos da sessão, do enunciado inicial ao pedido de atualizar esta
+exportação (4.851 entradas exportadas, 1.963 mantidas). Nesta versão a lista de bloqueio ganhou
+um fragmento de nome de plugin da conta pessoal que aparecia cortado numa saída de comando. Esta versão também corrige um
 vazamento das anteriores: caminhos da pasta do usuário escritos dentro de comandos citados na
 conversa (com barras duplicadas ou sem letra de drive) não eram substituídos. **Limite:** a exportação é feita antes da mensagem
 final do assistente nesse último pedido, que por isso não aparece nela. O `.zip` original, sem anonimização, fica só
