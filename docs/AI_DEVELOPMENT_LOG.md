@@ -460,3 +460,34 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   `simular_interacoes --guiada`; os dois logs foram regravados com o código final (mascaramento
   conferido: CPF e e-mail fictícios não aparecem em claro). Item 7 — índice do registro do processo
   no `AGENTS.md`. Item 8 — exportação da conversa refeita por último.
+
+### 2026-10-20 — Etapa 19: avaliação com modelo real — diagnóstico (branch `fix/llm-eval-diagnostics`)
+- **Ferramenta:** Claude Code (Claude Opus 5.5).
+- **Prompt (resumo):** o usuário mudou a decisão anterior, criou o secret `LLM_API_KEY` e disparou o
+  workflow manual: "Criei o secret" (execução 39522292878, concluída com sucesso em 35 s).
+- **Problema encontrado:** a execução ficou verde, mas **o modelo não foi usado**. Os passos de
+  avaliação levaram 3–4 s para 32 e 15 perguntas — tempo incompatível com chamadas reais. Causa no
+  desenho do workflow: quando o provedor falha, o agente cai no modo extrativo (comportamento certo para
+  o usuário final) e a avaliação terminava normalmente, sem nenhum sinal de erro. O log do job e o
+  artefato exigem login de administrador; **não usei as credenciais do usuário** para lê-los.
+- **Correção proposta e feita (aceita):**
+  - `LLMService.last_error` + `describe_error()`: guarda só o tipo da exceção, o código HTTP e o tipo
+    de erro da API (ex.: `AuthenticationError HTTP 401`), nunca a chave nem o corpo da resposta.
+  - `tests/eval/diagnosticar_modelo.py`: uma chamada mínima ao modelo antes das avaliações.
+  - `run_eval`: coluna e contagem de `modo`, campo `aviso`, anotação `::notice` com as métricas e
+    `--exigir-modelo`, que falha (código 1 + `::error` com o diagnóstico) se nenhuma resposta vier do
+    modelo.
+  - `llm-eval.yml`: passo "Testar a conexão com o modelo", `--exigir-modelo` nas duas avaliações,
+    `shell: bash` (com `pipefail`, para o código de saída não se perder no `tee`) e anotação com os
+    modos das interações gravadas. As anotações dos check-runs são públicas, então dá para ler o
+    resultado sem login.
+  - Alternativa rejeitada: pedir ao usuário que copie o log do job — funciona, mas o diagnóstico
+    precisa estar no próprio workflow para qualquer avaliador ver por que falhou.
+- **Testes executados:** `python -m pytest` → `141 passed in 10.50s` (o teste de erro do provedor agora
+  confere `last_error`: `HTTP 500`, sem a chave, nos dois provedores; e volta a `None` após sucesso).
+  Simulação local com provedor inalcançável (`LLM_BASE_URL=http://127.0.0.1:9`, chave fictícia):
+  `diagnosticar_modelo` → `::error ... APIConnectionError`, saída 1; `run_eval --validacao
+  --exigir-modelo` → `modos {'extractive': 4, 'none': 5, 'deterministic': 6}`, `::error ...
+  APIConnectionError`, saída 1.
+- **Pendente:** uma execução nova do workflow (botão "Run workflow", não "Re-run", que reusa a
+  definição antiga) para obter o diagnóstico ou os números reais com o modelo.

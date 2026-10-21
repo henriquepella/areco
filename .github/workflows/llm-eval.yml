@@ -4,6 +4,10 @@
 # Como usar: Settings → Secrets and variables → Actions → New repository secret
 #   nome: LLM_API_KEY   valor: <chave da Anthropic>
 # Depois: aba Actions → "Avaliação com modelo (manual)" → Run workflow.
+#
+# O job falha se o modelo não responder (em vez de cair em silêncio no modo extrativo).
+# Diagnóstico e métricas também saem como anotações na página da execução; nenhuma delas
+# contém a chave nem o corpo das respostas de erro.
 name: Avaliação com modelo (manual)
 
 on:
@@ -24,6 +28,7 @@ jobs:
       LLM_MODEL: ${{ inputs.model }}
     defaults:
       run:
+        shell: bash  # -eo pipefail: o código de saída do python não se perde no `tee`
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
@@ -39,16 +44,19 @@ jobs:
             exit 1
           fi
 
+      - name: Testar a conexão com o modelo
+        run: python -m tests.eval.diagnosticar_modelo
+
       - name: Avaliação do pacote + casos do desenvolvedor (com modelo)
         run: |
           { echo '### Avaliação (pacote + desenvolvedor), modelo: '"$LLM_MODEL"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          python -m tests.eval.run_eval --save | tee -a "$GITHUB_STEP_SUMMARY"
+          python -m tests.eval.run_eval --save --exigir-modelo | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Avaliação da validação separada (com modelo)
         run: |
           { echo '### Validação separada (nunca usada para ajuste)'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          python -m tests.eval.run_eval --validacao --save | tee -a "$GITHUB_STEP_SUMMARY"
+          python -m tests.eval.run_eval --validacao --save --exigir-modelo | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Interações reais pela API (registro em JSON Lines)
@@ -56,6 +64,13 @@ jobs:
           INTERACTION_LOG_PATH="$PWD/interacoes_llm.jsonl" uvicorn app.main:app --port 8000 &
           for i in $(seq 1 30); do curl -fs http://localhost:8000/health && break; sleep 1; done
           python -m tests.eval.simular_interacoes --url http://localhost:8000
+          python - <<'EOF'
+          import collections, json
+          rows = [json.loads(line) for line in open("interacoes_llm.jsonl", encoding="utf-8")]
+          modes = dict(collections.Counter(r.get("mode") for r in rows))
+          notices = sum(1 for r in rows if r.get("notice"))
+          print(f"::notice title=Interações pela API::{len(rows)} interações; modos {modes}; avisos {notices}")
+          EOF
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -59,7 +61,7 @@ def evaluate(orchestrator, cases: list[dict]) -> dict:
         abstain_ok = (r.status == exp_status) if exp_status in ABSTAIN else None
         rows.append({"id": c["id"], "origem": c["origem"], "pergunta": c["pergunta"],
                      "esperado": c["dominio_esperado"], "previsto": r.category, "status": r.status,
-                     "modo": r.mode, "fontes": sorted(docs), "roteamento": routing_ok,
+                     "modo": r.mode, "aviso": r.notice, "fontes": sorted(docs), "roteamento": routing_ok,
                      "recuperacao": retrieval_ok, "fidelidade": faithful_ok, "abstencao": abstain_ok})
 
     def rate(key):
@@ -81,6 +83,8 @@ def main() -> int:
     ap.add_argument("--save", action="store_true")
     ap.add_argument("--validacao", action="store_true",
                     help="usa o conjunto separado casos_validacao.json (nunca usado para ajuste)")
+    ap.add_argument("--exigir-modelo", action="store_true",
+                    help="falha se nenhuma resposta tiver vindo do modelo de linguagem")
     args = ap.parse_args()
 
     from app.agents.orchestrator import Orchestrator
@@ -97,17 +101,34 @@ def main() -> int:
     report["executado_em"] = datetime.now().isoformat(timespec="seconds")
 
     print(f"Provedor: {llm.status()['provider']} (configurado: {llm.status()['configured']})\n")
-    print(f"{'id':5} {'esperado':22} {'previsto':22} {'status':14} rot   rec   fid   abs")
+    print(f"{'id':5} {'esperado':22} {'previsto':22} {'status':14} {'modo':13} rot   rec   fid   abs")
     for r in report["casos"]:
-        print(f"{r['id']:5} {r['esperado'][:22]:22} {r['previsto']:22} {r['status']:14} "
+        print(f"{r['id']:5} {r['esperado'][:22]:22} {r['previsto']:22} {r['status']:14} {r['modo']:13} "
               f"{_fmt(r['roteamento']):5} {_fmt(r['recuperacao']):5} {_fmt(r['fidelidade']):5} {_fmt(r['abstencao'])}")
     print()
     for k, m in report["metricas"].items():
         print(f"{k:12} {m['acertos']}/{m['total']}  ({m['taxa']})")
+    # Quantas respostas vieram de fato do modelo (as demais são determinísticas, extrativas ou
+    # caíram no modo extrativo por falha do provedor, indicada em "aviso").
+    modes = Counter(r["modo"] for r in report["casos"])
+    fallbacks = sum(1 for r in report["casos"] if r["aviso"])
+    print(f"modos        {dict(modes)} | respostas com aviso de falha/descarte: {fallbacks}")
     if args.save:
         out = HERE / f"resultados_{datetime.now():%Y%m%d_%H%M%S}.json"
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\nResultados salvos em {out}")
+
+    name = "validação separada" if args.validacao else "pacote + desenvolvedor"
+    summary = "; ".join(f"{k} {m['acertos']}/{m['total']}" for k, m in report["metricas"].items())
+    if os.getenv("GITHUB_ACTIONS") == "true":  # anotação legível na página da execução
+        print(f"::notice title=Avaliação ({name})::{summary}; respostas do modelo: {modes.get('llm', 0)}; "
+              f"avisos: {fallbacks}")
+    if args.exigir_modelo and llm.available and not modes.get("llm"):
+        detail = llm.last_error or "nenhuma resposta veio do modelo"
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            print(f"::error title=Modelo não usado ({name})::{detail}")
+        print(f"\nFALHA: nenhuma resposta veio do modelo ({detail}).")
+        return 1
     return 0
 
 
