@@ -20,4 +20,5 @@ def setup_logging(level: str = "INFO") -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
-    logging.getLogger("httpx").setLevel("WARNING")  # evita logar URLs/cabeçalhos do provedor
+    for name in ("httpx", "httpx2"):  # httpx2 é usado pelo SDK anthropic 1.x
+        logging.getLogger(name).setLevel("WARNING")  # evita logar URLs/cabeçalhos do provedor
