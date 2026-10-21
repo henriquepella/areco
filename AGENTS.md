@@ -11,6 +11,31 @@ contínuo e transparente do desenvolvimento assistido por IA.
 - Bases de conhecimento (sintéticas, empresa fictícia) em `backend/app/knowledge_base/<domínio>/`.
 - Testes em `backend/tests`, avaliação em `backend/tests/eval`.
 
+## Registro do processo deste projeto
+
+Onde está cada parte do registro do desenvolvimento com IA:
+
+| O quê | Onde |
+|---|---|
+| Diário por etapa: prompts, decisões (aceitas/modificadas/rejeitadas), problemas, correções e testes com resultado real | [`docs/AI_DEVELOPMENT_LOG.md`](docs/AI_DEVELOPMENT_LOG.md) |
+| Conversa com a ferramenta de IA (exportação original anonimizada + versão legível + registro manual) | [`docs/ai_conversations/`](docs/ai_conversations/) |
+| Interações reais com o agente desenvolvido | [`docs/logs/`](docs/logs/) |
+| Cada etapa como um branch próprio, integrado à `main` com merge `--no-ff` | histórico do Git (`git log --graph`) |
+
+Etapas registradas no diário:
+
+| # | Etapa |
+|---|---|
+| 0–2 | Análise dos anexos, criação deste arquivo e do diário, decisões de arquitetura |
+| 3–6 | Ingestão e busca BM25, agentes, orquestrador, API |
+| 7–10 | Interface web, Docker, avaliação, documentação |
+| 11 | Execução local e nova identidade visual com animação de digitação |
+| 12–13 | Conferência da entrega, registro de interações, CI com Docker, exportação da conversa |
+| 14 | Limpeza de código comprovada por retrato byte a byte das saídas |
+| 15–16 | Menu inteligente de perguntas (conversa guiada) e exportação atualizada |
+| 17 | Correções de uma revisão externa: CI confirmado, validação separada, testes HTTP dos provedores, anonimizador |
+| 18 | Preparação para envio |
+
 ## Regras de registro (obrigatórias)
 
 O diário de desenvolvimento fica em [`docs/AI_DEVELOPMENT_LOG.md`](docs/AI_DEVELOPMENT_LOG.md).

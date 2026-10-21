@@ -450,3 +450,13 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   A avaliação com modelo real fica registrada como **não realizada nesta entrega**; todos os números
   publicados são do modo sem modelo. O workflow manual `llm-eval.yml` e as instruções do README ficam
   disponíveis como opção para quem tiver uma chave.
+
+### 2026-10-20 — Etapa 18: preparação para envio (branch `docs/final-delivery`)
+- **Prompt (resumo):** lista dos 9 itens de entrega do e-mail + "Preciso de tudo pronto para envio".
+- **Conferido no repositório público** (`raw.githubusercontent.com`, HTTP 200 para cada arquivo de
+  cada item) e CI do último commit da `main` (`0167717`) com sucesso.
+- **Ajustes:** item 6 — além das 38 perguntas em `/api/chat`, gravado `docs/logs/interacoes_conversa_guiada.jsonl`
+  com 19 turnos em 10 conversas reais da conversa guiada (o caminho que a interface usa), via
+  `simular_interacoes --guiada`; os dois logs foram regravados com o código final (mascaramento
+  conferido: CPF e e-mail fictícios não aparecem em claro). Item 7 — índice do registro do processo
+  no `AGENTS.md`. Item 8 — exportação da conversa refeita por último.

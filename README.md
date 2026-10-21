@@ -437,13 +437,17 @@ Erros: `422` para entrada inválida ou longa demais, `500` com mensagem genéric
 
 ## Logs das interações
 
-Cada pergunta respondida por `POST /api/chat` vira uma linha em um arquivo **JSON Lines** com a
-pergunta (dados pessoais mascarados), categoria, agente, método e pontos do roteamento,
-confiança, status, modo, fontes, resposta e latência.
+Cada mensagem respondida por `POST /api/chat` ou `POST /api/assist` vira uma linha em um arquivo
+**JSON Lines** com a pergunta (dados pessoais mascarados), categoria, agente, método e pontos do
+roteamento, confiança, status, modo, fontes, resposta e latência; na conversa guiada, também a
+intenção, o agente ativo e o que a Aurora pediu em seguida.
 
-- **Exemplo real:** [`docs/logs/interacoes_exemplo.jsonl`](docs/logs/interacoes_exemplo.jsonl),
-  com 38 interações gravadas pela API em execução. Formato e como reproduzir em
-  [`docs/logs/README.md`](docs/logs/README.md).
+- **Exemplos reais**, gravados pela API em execução:
+  - [`docs/logs/interacoes_exemplo.jsonl`](docs/logs/interacoes_exemplo.jsonl): 38 perguntas em `/api/chat`;
+  - [`docs/logs/interacoes_conversa_guiada.jsonl`](docs/logs/interacoes_conversa_guiada.jsonl):
+    19 turnos em 10 conversas da interface (sugestão, confirmação, parâmetro, troca de agente).
+
+  Formato e como reproduzir em [`docs/logs/README.md`](docs/logs/README.md).
 - **No Docker:** volume `interaction_logs`. Para copiar:
   `docker compose cp app:/app/logs/interacoes.jsonl ./interacoes.jsonl`
 - **Local:** `logs/interacoes.jsonl` na raiz do projeto.
