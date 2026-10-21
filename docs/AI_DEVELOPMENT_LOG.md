@@ -502,4 +502,13 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
 - **Testes executados:** `python -m pytest` → `141 passed in 8.67s` (novo caso no servidor falso:
   400 com a chave dentro da mensagem → `BadRequestError HTTP 400 invalid_request_error: Saldo
   insuficiente para [chave] ([chave])`).
-- **Pendente:** 3ª execução para ler o motivo exato e, se o modelo responder, os números reais.
+- **3ª execução (39523635866, com o diagnóstico novo):** falhou de novo no teste de conexão, agora
+  com o motivo exato na anotação pública: `BadRequestError HTTP 400 invalid_request_error: Your
+  credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or
+  purchase credits.` O usuário confirmou: *"Nao esta rodando pois os creditos estao baixos"*.
+- **Decisão:** a avaliação com modelo real fica registrada como **tentada e não concluída por falta
+  de crédito na conta**; substitui o registro anterior de "não realizada (sem chave)". Nenhum número
+  com modelo foi publicado. README atualizado: status da entrega, tabela de dificuldades, seção
+  "Avaliação com modelo de linguagem" (com o link da execução e o novo comportamento do workflow) e
+  contagem do CI (27 execuções de `ci.yml`, todas com sucesso, conferidas pela API pública).
+- **Testes executados:** `python -m pytest` → `141 passed in 9.84s` (só documentação mudou nesta parte).

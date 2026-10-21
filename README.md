@@ -62,16 +62,17 @@ e sempre mostram o domínio usado e as fontes consultadas.
   A integração foi testada pelo **protocolo HTTP real** contra um servidor local que imita as duas
   APIs (`tests/test_llm_http.py`: o SDK oficial monta e envia a requisição, a resposta passa pelas
   barreiras contra invenção, recusas e erros caem no modo extrativo). **A avaliação com um modelo
-  real não foi realizada nesta entrega**: nenhuma chave de API foi usada no desenvolvimento e não
-  havia Ollama na máquina. Todos os resultados publicados são do modo sem modelo. Quem tiver uma
-  chave pode fazer a medição com o workflow manual descrito em
-  [Avaliação com modelo](#avaliação-com-modelo-de-linguagem).
+  real foi tentada, mas não concluída**: o workflow manual chegou à API da Anthropic com o Claude
+  Opus 5.5, e a API recusou a primeira chamada por falta de crédito na conta (`HTTP 400`, *credit
+  balance is too low*; [execução](https://github.com/henriquepella/areco/actions/runs/39523635866)).
+  Todos os resultados publicados são do modo sem modelo. Com crédito na conta, a medição roda pelo
+  mesmo workflow, descrito em [Avaliação com modelo](#avaliação-com-modelo-de-linguagem).
 - **Docker:** não foi executado na máquina de desenvolvimento (sem Docker instalado), mas
   **está verificado no CI**: o workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) segue
   o README num runner Linux do GitHub — `cp .env.example .env`, `docker compose up --build`,
   healthcheck, `/health`, frontend, `/api/chat` com valor conferido nos CSVs, 38 perguntas contra o
-  container, volume de logs e `pytest` dentro do container. Todas as 13 execuções até agora
-  passaram; exemplo com todas as etapas verdes: [https://github.com/henriquepella/areco/actions/runs/39518745059](https://github.com/henriquepella/areco/actions/runs/39518745059). Docker Desktop no Windows e no
+  container, volume de logs e `pytest` dentro do container. Todas as execuções até agora
+  passaram (27 em 2026-10-20); exemplo com todas as etapas verdes: [https://github.com/henriquepella/areco/actions/runs/39518745059](https://github.com/henriquepella/areco/actions/runs/39518745059). Docker Desktop no Windows e no
   macOS não foi testado.
 - Itens fora do escopo desta versão: memória de conversa, autenticação, rate limiting, registro
   real de manifestações (não existe sistema transacional nos anexos) e PDF/DOCX (nenhum anexo
@@ -87,6 +88,7 @@ e sempre mostram o domínio usado e as fontes consultadas.
 | Digitação não aparecia nesta máquina | Desligar a animação com "reduzir movimento" | Manter a escrita progressiva (não move nada na tela) e trocar só os deslocamentos por esmaecimento |
 | Resposta em branco com a janela oculta | `requestAnimationFrame` | `setTimeout` com progresso pelo tempo real |
 | Log apagava e-mails oficiais da base | Mascarar pergunta e resposta | Mascarar só a pergunta (texto livre do usuário) |
+| Avaliação com modelo ficou verde sem o modelo ter respondido (as respostas caíam no modo extrativo) | Ler o log do job, que exige login de administrador | Teste de conexão antes das avaliações, falha quando nenhuma resposta vem do modelo e motivo publicado como anotação, sem a chave; foi assim que apareceu a falta de crédito |
 
 O registro completo, com comandos e resultados, está no [diário](docs/AI_DEVELOPMENT_LOG.md).
 
@@ -106,8 +108,8 @@ O registro completo, com comandos e resultados, está no [diário](docs/AI_DEVEL
 ### O que eu faria diferente
 
 - Configuraria o CI com Docker no primeiro dia, em vez de descobrir no fim que não havia Docker local.
-- Conseguiria cedo uma chave de API de teste, para medir o modo com modelo e as barreiras de
-  fidelidade com respostas reais.
+- Conseguiria cedo uma chave de API de teste com crédito, para medir o modo com modelo e as
+  barreiras de fidelidade com respostas reais.
 - Montaria o conjunto de avaliação antes de ajustar pesos, separando casos de ajuste e de teste,
   para evitar o risco de sobreajuste registrado no diário.
 - Definiria o fluxo de conversa da interface (fases, digitação) junto com o primeiro layout, em
@@ -581,17 +583,24 @@ entendimento de sinônimos, que é o papel do modelo de linguagem.
 
 ### Avaliação com modelo de linguagem
 
-Não realizada nesta entrega (sem chave de API). Para quem tiver uma chave, a medição com um
-modelo real fica a um clique:
+**Tentada em 2026-10-20 e não concluída.** O secret `LLM_API_KEY` foi cadastrado e o workflow
+manual chegou à API da Anthropic, mas o teste de conexão foi recusado por falta de crédito na
+conta: `BadRequestError HTTP 400 invalid_request_error`, com a mensagem *credit balance is too
+low* ([execução](https://github.com/henriquepella/areco/actions/runs/39523635866)). Por isso
+não há números com modelo nesta entrega. Com crédito na conta, a medição fica a um clique:
 
 1. No GitHub: *Settings → Secrets and variables → Actions → New repository secret*, nome
    `LLM_API_KEY`, valor = chave da Anthropic.
-2. Aba *Actions* → **Avaliação com modelo (manual)** → *Run workflow*.
+2. Aba *Actions* → **Avaliação com modelo (manual)** → *Run workflow* (não *Re-run*, que repete
+   a versão do workflow daquela execução).
 
-O workflow ([`.github/workflows/llm-eval.yml`](.github/workflows/llm-eval.yml)) roda as duas
-avaliações e as 38 interações com `LLM_PROVIDER=anthropic`, mostra as métricas no resumo da
-execução e guarda os resultados e o registro de interações como artefato. Ele só roda quando
-disparado à mão, porque gera custo.
+O workflow ([`.github/workflows/llm-eval.yml`](.github/workflows/llm-eval.yml)) primeiro faz uma
+chamada mínima ao modelo e para se ela falhar. Depois roda as duas avaliações e as 38
+interações com `LLM_PROVIDER=anthropic`, mostra as métricas no resumo da execução e guarda os
+resultados e o registro de interações como artefato. Ele falha se nenhuma resposta da avaliação
+vier do modelo, em vez de passar em silêncio com o modo extrativo. O diagnóstico e as métricas
+saem também como anotações na página da execução, sem a chave. Ele só roda quando disparado à
+mão, porque gera custo.
 
 Localmente (PowerShell), com a chave apenas na sessão do terminal:
 
