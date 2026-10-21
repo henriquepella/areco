@@ -40,6 +40,16 @@ class FakeProvider:
                     self.send_response(500)
                     self.end_headers()
                     return
+                if provider.mode == "bad_request":  # erro da API cuja mensagem cita a chave
+                    data = json.dumps({"type": "error", "error": {
+                        "type": "invalid_request_error",
+                        "message": "Saldo insuficiente para fixture-not-a-key (sk-ant-teste-123)"}}).encode()
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 if self.path.endswith("/v1/messages"):
                     payload = {"id": "msg_teste", "type": "message", "role": "assistant", "model": body["model"],
                                "content": [{"type": "text", "text": provider.reply}],
@@ -104,6 +114,11 @@ def test_refusal_and_server_error_raise_llmerror(provider):
     with pytest.raises(LLMError):
         compat.complete("s", "u")
     assert compat.last_error == "HTTPStatusError HTTP 500"
+    provider.mode = "bad_request"  # motivo da API aparece, com a chave mascarada
+    with pytest.raises(LLMError):
+        svc.complete("s", "u")
+    assert svc.last_error == ("BadRequestError HTTP 400 invalid_request_error: "
+                              "Saldo insuficiente para [chave] ([chave])")
     provider.mode = "ok"
     svc.complete("s", "u")
     assert svc.last_error is None

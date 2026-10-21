@@ -489,5 +489,17 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
   `diagnosticar_modelo` → `::error ... APIConnectionError`, saída 1; `run_eval --validacao
   --exigir-modelo` → `modos {'extractive': 4, 'none': 5, 'deterministic': 6}`, `::error ...
   APIConnectionError`, saída 1.
-- **Pendente:** uma execução nova do workflow (botão "Run workflow", não "Re-run", que reusa a
-  definição antiga) para obter o diagnóstico ou os números reais com o modelo.
+- **2ª execução (39523298307, disparada pelo usuário com o workflow novo):** falhou no passo
+  "Testar a conexão com o modelo", como deveria. Anotação pública do job:
+  `anthropic/claude-opus-5-5: BadRequestError HTTP 400 invalid_request_error`. Não é chave inválida
+  (seria 401) nem modelo inexistente (seria 404). Conferido na documentação da API: os parâmetros
+  enviados (`model`, `max_tokens`, `system`, uma mensagem; sem `temperature`, `thinking` ou
+  `tool_choice`) são aceitos pelo Opus 5.5, então a causa provável é da conta (por exemplo, sem
+  crédito), não do código. O tipo do erro não basta para afirmar isso.
+- **Ajuste (branch `fix/llm-error-message`, aceito):** `describe_error` passa a incluir o campo
+  `error.message` do corpo do erro da API — só esse campo, nunca cabeçalhos —, truncado em 200
+  caracteres, com a chave configurada e qualquer `sk-...` trocados por `[chave]`.
+- **Testes executados:** `python -m pytest` → `141 passed in 8.67s` (novo caso no servidor falso:
+  400 com a chave dentro da mensagem → `BadRequestError HTTP 400 invalid_request_error: Saldo
+  insuficiente para [chave] ([chave])`).
+- **Pendente:** 3ª execução para ler o motivo exato e, se o modelo responder, os números reais.

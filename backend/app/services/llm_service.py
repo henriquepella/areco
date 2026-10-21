@@ -8,6 +8,7 @@ Provedores (LLM_PROVIDER):
 from __future__ import annotations
 
 import logging
+import re
 
 import httpx
 
@@ -23,14 +24,24 @@ class LLMError(RuntimeError):
     """Falha ao falar com o provedor. A mensagem é segura para exibir ao usuário."""
 
 
-def describe_error(exc: Exception) -> str:
-    """Resumo da falha sem dados sensíveis: tipo da exceção, código HTTP e tipo de erro da API
-    (ex.: "AuthenticationError HTTP 401 authentication_error")."""
+def describe_error(exc: Exception, secret: str | None = None) -> str:
+    """Resumo da falha sem dados sensíveis: tipo da exceção, código HTTP, tipo e mensagem de erro
+    da API (ex.: "BadRequestError HTTP 400 invalid_request_error: <motivo>"). A mensagem vem só do
+    campo error.message do corpo (nunca cabeçalhos), truncada e com qualquer chave mascarada."""
     status = getattr(exc, "status_code", None) or getattr(getattr(exc, "response", None), "status_code", None)
-    api_type = getattr(exc, "type", None)
+    body = getattr(exc, "body", None)
+    error = body.get("error") if isinstance(body, dict) else None
+    error = error if isinstance(error, dict) else {}
+    api_type = error.get("type") or getattr(exc, "type", None)
     parts = [type(exc).__name__, f"HTTP {status}" if status else None,
              api_type if isinstance(api_type, str) else None]
-    return " ".join(p for p in parts if p)
+    text = " ".join(p for p in parts if p)
+    message = error.get("message")
+    if isinstance(message, str) and message.strip():
+        if secret:
+            message = message.replace(secret, "[chave]")
+        text += ": " + re.sub(r"sk-[\w-]+", "[chave]", message.strip())[:200]
+    return text
 
 
 class LLMService:
@@ -70,9 +81,9 @@ class LLMService:
             self.last_error = str(exc)
             raise
         except Exception as exc:  # noqa: BLE001 - qualquer falha do provedor vira LLMError
-            # Só tipo, código HTTP e tipo de erro da API vão para o log: a mensagem e o corpo da
-            # resposta podem conter cabeçalhos ou segredos.
-            self.last_error = describe_error(exc)
+            # Só tipo, código HTTP e error.message da API (sem a chave) vão para o log; a mensagem
+            # da exceção e o resto da resposta podem conter cabeçalhos ou segredos.
+            self.last_error = describe_error(exc, self.s.llm_api_key)
             logger.error("llm_call_failed", extra={"provider": self.provider, "error": self.last_error})
             raise LLMError("O provedor de IA não respondeu corretamente.") from exc
         if not text.strip():
