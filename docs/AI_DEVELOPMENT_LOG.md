@@ -375,3 +375,16 @@ Nenhuma entrada contém segredos. Resultados de testes são copiados de execuç�
     sugestões; sem rolagem horizontal; console sem erros.
   - **Não verificado no navegador:** a mensagem de falha ao carregar `/api/suggestions` (o código
     trata o erro, mas não foi possível simular a falha só dessa rota sem alterar o servidor).
+
+### 2026-10-20 — Etapa 16: exportação da conversa atualizada (branch `docs/conversation-export-v2`)
+- **Prompt (resumo):** "Sim, exporte a conversa de novo, anonimize com o mesmo script e publique no repositório."
+- **Feito:** nova exportação pelo Claude Code (`session-export-1792540752788.zip`, 7 MB, fica só na
+  máquina do autor) → `scripts/anonimizar_conversa.py` com os mesmos parâmetros da versão anterior →
+  3.326 entradas exportadas, 1.389 mantidas; tipos novos de metadado (`cost-state`, `mode`, `system`)
+  ficaram de fora pelo filtro existente, sem mudar o script.
+- **Verificação executada:** saída do script "nenhum termo proibido encontrado"; verificação à parte
+  com `grep` (e-mail, nome do e-mail, caminhos da pasta do usuário, pasta de dados da conta, nomes de
+  ferramentas da conta, padrões de chave `sk-`/`ghp_`/`AKIA`) → 0 ocorrências nos dois arquivos;
+  JSONL válido (1.389 linhas); 24/24 imagens decodificáveis; as 12 mensagens do usuário presentes;
+  e-mails restantes são só os fictícios das bases/fixtures, o de atribuição de commit e falsos
+  positivos de decorators Python (`@router.get`).
