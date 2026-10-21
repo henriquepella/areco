@@ -34,6 +34,9 @@
 12. *"Sim, exporte a conversa de novo, anonimize com o mesmo script e publique no repositório."*
 13. Revisão externa colada pelo usuário, com 4 prioridades (Docker/CI, modo com IA, perguntas
     naturais e conjunto de validação separado, privacidade no histórico).
+14. *"Não reescreva o histórico; os trechos antigos são de baixa sensibilidade."*
+15. *"N informar isso"* — esclarecido por pergunta: não cadastrar a chave da Anthropic.
+16. Lista dos 9 itens de entrega + *"Preciso de tudo pronto para envio"*.
 
 ## O que a IA fez em resposta (resumo)
 
@@ -60,6 +63,8 @@
 | 19 | Menu inteligente: `/api/assist`, `/api/suggestions`, catálogo de intenções gerado das bases, interface com agentes clicáveis. | 128 testes; 31 sugestões executadas até a resposta. | `feat/menu-inteligente` |
 | 20 | Nova exportação da sessão, anonimizada com o mesmo script e verificada à parte. | 1.389 entradas; nenhum termo bloqueado. | `docs/conversation-export-v2` |
 | 21 | CI confirmado (13/13); validação separada antes/depois (7/14 → 9/14 na recuperação); âncora no título; testes HTTP dos provedores; anonimizador corrigido. | 141 testes. | `feat/natural-questions` |
+| 22 | Histórico mantido (decisão do usuário); avaliação com modelo real registrada como não realizada. | — | `docs/history-decision`, `docs/llm-eval-not-run` |
+| 23 | Conferência final dos 9 itens no repositório público, log da conversa guiada, índice no `AGENTS.md`, exportação final. | 141 testes; links ok. | `docs/final-delivery` |
 
 ## Sugestões consideradas e rejeitadas pela IA
 

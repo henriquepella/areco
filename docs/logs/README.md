@@ -9,11 +9,27 @@ API em 2026-10-20: o servidor (uvicorn, `LLM_PROVIDER=none`) foi iniciado com
 - 6 perguntas de demonstração do script, incluindo uma com CPF e e-mail **fictícios** para
   mostrar o mascaramento.
 
+[`interacoes_conversa_guiada.jsonl`](interacoes_conversa_guiada.jsonl) é um registro **real** da
+conversa guiada que a interface usa (`POST /api/assist`): 19 turnos em 10 conversas, enviados por
+HTTP exatamente como o frontend faz (devolvendo intenção e parâmetros de cada `follow_up`):
+
+- sugestão "despesas pagas" → "janeiro" → "2026";
+- "Quanto a empresa gastou em janeiro?" → *Despesas pagas em janeiro* → "2025";
+- execução orçamentária em 2025 → "Tecnologia";
+- protocolo sem número → "abc" (formato inválido) → "OUV-9999" (inexistente); protocolo OUV-0002;
+- "Como solicito férias?" com o Agente Financeiro ativo → troca para Informações Internas;
+- pergunta ambígua sem agente → escolha do agente; pergunta fora do escopo;
+- pergunta de reembolso em linguagem natural; pedido de senha de terceiros (recusado).
+
+Nessas linhas aparecem também `intent`, `active_domain` e `follow_up` (o que a Aurora pediu em
+seguida). Os dois arquivos foram regravados em 2026-10-20 com a versão final do código.
+
 Para reproduzir (com a API rodando localmente ou no Docker):
 
 ```bash
 cd backend
 python -m tests.eval.simular_interacoes --url http://localhost:8000
+python -m tests.eval.simular_interacoes --guiada --url http://localhost:8000
 ```
 
 ## Formato
