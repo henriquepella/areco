@@ -1,0 +1,66 @@
+# Avaliação com um modelo de verdade (Claude). Só roda quando disparada à mão, porque usa
+# a chave de API do dono do repositório e gera custo.
+#
+# Como usar: Settings → Secrets and variables → Actions → New repository secret
+#   nome: LLM_API_KEY   valor: <chave da Anthropic>
+# Depois: aba Actions → "Avaliação com modelo (manual)" → Run workflow.
+name: Avaliação com modelo (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Modelo da Anthropic"
+        required: false
+        default: "claude-opus-5-5"
+
+jobs:
+  llm-eval:
+    name: Avaliação e interações com o modelo
+    runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: anthropic
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL: ${{ inputs.model }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      - name: Verificar a chave
+        run: |
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "::error::Crie o secret LLM_API_KEY em Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+      - name: Avaliação do pacote + casos do desenvolvedor (com modelo)
+        run: |
+          { echo '### Avaliação (pacote + desenvolvedor), modelo: '"$LLM_MODEL"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          python -m tests.eval.run_eval --save | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Avaliação da validação separada (com modelo)
+        run: |
+          { echo '### Validação separada (nunca usada para ajuste)'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          python -m tests.eval.run_eval --validacao --save | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Interações reais pela API (registro em JSON Lines)
+        run: |
+          INTERACTION_LOG_PATH="$PWD/interacoes_llm.jsonl" uvicorn app.main:app --port 8000 &
+          for i in $(seq 1 30); do curl -fs http://localhost:8000/health && break; sleep 1; done
+          python -m tests.eval.simular_interacoes --url http://localhost:8000
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resultados-com-modelo
+          path: |
+            backend/tests/eval/resultados_*.json
+            backend/interacoes_llm.jsonl

@@ -252,3 +252,31 @@ def test_assist_validation(client, payload):
 def test_chat_endpoint_is_unchanged(client):
     b = client.post("/api/chat", json={"question": "Quanto gastamos em março?"}).json()
     assert b["status"] == "clarification" and "ano" in b["answer"] and "follow_up" not in b
+
+
+# ---------------------------------------------------------------- perguntas naturais (revisão externa)
+
+@pytest.mark.parametrize("question", [
+    "Quero pedir reembolso de uma viagem, qual o procedimento?",
+    "Como pedir reembolso de despesas?",
+])
+@pytest.mark.parametrize("endpoint", ["chat", "assist"])
+def test_natural_reimbursement_questions(client, question, endpoint):
+    """Exemplos de uma revisão externa que falhavam (not_found / pedido de esclarecimento)."""
+    b = client.post(f"/api/{endpoint}", json={"question": question}).json()
+    assert b["category"] == "informacoes_internas" and b["status"] == "answered", b["answer"]
+    assert "02_politica_reembolso.md" in {s["document"] for s in b["sources"]}
+
+
+@pytest.mark.parametrize("question", ["Qual a política de viagens internacionais?",
+                                      "Qual o horário de funcionamento do refeitório?"])
+def test_title_anchor_does_not_invent_relevance(client, question):
+    b = ask(client, question, domain="informacoes_internas")
+    assert b["status"] == "not_found" and b["sources"] == []
+
+
+def test_single_probable_domain_is_confirmed_with_clear_wording(client):
+    b = ask(client, "Quanto a empresa faturou em 2026?")
+    fu = b["follow_up"]
+    assert fu["kind"] == "confirm_domain" and "Qual deles" not in b["answer"]
+    assert fu["options"][0]["domain"] == "financeiro" and fu["options"][0]["question"]

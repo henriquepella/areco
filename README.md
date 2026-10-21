@@ -34,7 +34,7 @@ e sempre mostram o domínio usado e as fontes consultadas.
 | # | Item pedido | Onde está | Situação |
 |---|---|---|---|
 | 1 | Repositório GitHub | https://github.com/henriquepella/areco | Código completo na branch `main`, cada etapa em seu próprio branch |
-| 2 | Execução via Docker | `backend/Dockerfile`, `docker-compose.yml`, `.env.example`, [instruções](#execução-com-docker) | Arquivos prontos. O passo a passo do README é executado pelo workflow de CI a cada push (aba *Actions*) |
+| 2 | Execução via Docker | `backend/Dockerfile`, `docker-compose.yml`, `.env.example`, [instruções](#execução-com-docker) | **Verificado no CI:** o passo a passo do README roda a cada push; todas as 13 execuções passaram ([exemplo](https://github.com/henriquepella/areco/actions/runs/39518745059)) |
 | 3 | Frontend | `frontend/` (HTML, CSS e JS puro) | Funcionando; testado em desktop e celular |
 | 4 | Orquestrador e agentes | `backend/app/agents/` | Funcionando; roteamento 32/32 na avaliação |
 | 5 | Uso das bases de conhecimento | `backend/app/knowledge_base/`, `services/document_service.py`, `services/retrieval_service.py` | Carregadas e indexadas automaticamente na inicialização |
@@ -52,19 +52,25 @@ e sempre mostram o domínio usado e as fontes consultadas.
 - Interface web integrada à API, com encaminhamento visível e animação de digitação.
 - Menu inteligente: escolha do agente, perguntas sugeridas geradas das bases, confirmação de
   intenção e pedido só dos dados que faltam (ver [Menu de perguntas](#menu-de-perguntas-e-conversa-guiada)).
-- 128 testes automatizados e avaliação com métricas separadas, sem chamadas pagas.
+- 141 testes automatizados e avaliação com métricas separadas, sem chamadas pagas, incluindo
+  um conjunto de validação nunca usado para ajuste (resultados em [Testes e avaliação](#testes-e-avaliação)).
 - Registro das interações com mascaramento de dados pessoais.
 
 ### O que ficou pendente ou sem verificação
 
-- **Modo com modelo de linguagem:** implementado para Anthropic e APIs compatíveis com OpenAI,
-  mas **não foi exercitado contra um provedor real** (não havia chave de API durante o
-  desenvolvimento). As barreiras contra respostas infiéis foram testadas com um modelo simulado.
-- **Docker:** não foi executado na máquina de desenvolvimento, que não tem Docker instalado. A
-  validação fica a cargo do workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml), que
-  segue o README num runner Linux do GitHub: `docker compose up --build`, healthcheck, `/health`,
-  frontend, `/api/chat` com valor conferido, 38 perguntas contra o container, volume de logs e
-  `pytest` dentro do container. O resultado fica na aba *Actions*. Docker Desktop no Windows e no
+- **Modo com modelo de linguagem:** implementado para Anthropic e APIs compatíveis com OpenAI.
+  A integração foi testada pelo **protocolo HTTP real** contra um servidor local que imita as duas
+  APIs (`tests/test_llm_http.py`: o SDK oficial monta e envia a requisição, a resposta passa pelas
+  barreiras contra invenção, recusas e erros caem no modo extrativo). **A qualidade das respostas
+  de um modelo real ainda não foi medida:** não havia chave de API nem Ollama na máquina de
+  desenvolvimento. Para medir, há um workflow manual que usa a chave cadastrada como secret
+  (ver [Avaliação com modelo](#avaliação-com-modelo-de-linguagem)).
+- **Docker:** não foi executado na máquina de desenvolvimento (sem Docker instalado), mas
+  **está verificado no CI**: o workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) segue
+  o README num runner Linux do GitHub — `cp .env.example .env`, `docker compose up --build`,
+  healthcheck, `/health`, frontend, `/api/chat` com valor conferido nos CSVs, 38 perguntas contra o
+  container, volume de logs e `pytest` dentro do container. Todas as 13 execuções até agora
+  passaram; exemplo com todas as etapas verdes: [https://github.com/henriquepella/areco/actions/runs/39518745059](https://github.com/henriquepella/areco/actions/runs/39518745059). Docker Desktop no Windows e no
   macOS não foi testado.
 - Itens fora do escopo desta versão: memória de conversa, autenticação, rate limiting, registro
   real de manifestações (não existe sistema transacional nos anexos) e PDF/DOCX (nenhum anexo
@@ -282,9 +288,9 @@ Acesse **http://localhost:8000**. A documentação interativa da API fica em **h
 Sem `.env`, ou com `LLM_PROVIDER=none`, a aplicação sobe em **modo extrativo** (ver abaixo).
 Para usar outra porta, defina `APP_PORT` no `.env`.
 
-> Nota: o Docker não estava instalado na máquina de desenvolvimento, então o passo a passo
-> acima é validado pelo workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) em um
-> runner Linux do GitHub a cada push (resultado na aba *Actions*).
+> Nota: o Docker não estava instalado na máquina de desenvolvimento. O passo a passo acima é
+> executado pelo workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) em um runner Linux
+> do GitHub a cada push; todas as execuções passaram ([exemplo](https://github.com/henriquepella/areco/actions/runs/39518745059)).
 
 ## Execução local sem Docker
 
@@ -525,8 +531,9 @@ descartada e o sistema exibe o conteúdo recuperado.
 
 ```bash
 cd backend
-python -m pytest                       # 128 testes, sem rede e sem API paga
+python -m pytest                       # 141 testes, sem rede e sem API paga
 python -m tests.eval.run_eval          # relatório de avaliação
+python -m tests.eval.run_eval --validacao   # conjunto separado, nunca usado para ajuste
 python -m tests.eval.run_eval --save   # também grava tests/eval/resultados_<data>.json
 ```
 
@@ -545,9 +552,51 @@ A **avaliação** (`backend/tests/eval/`) mede separadamente:
 | Abstenção | status correto quando não se deve responder | 10/10 |
 
 Ela usa os 12 casos do pacote (`perguntas_avaliacao.json`) e 20 casos extras
-(`casos_adicionais.json`) **escritos pelo desenvolvedor**. Ressalvas: o conjunto é pequeno, alguns
-pesos foram ajustados a partir dele (risco de sobreajuste), e o modo com modelo de linguagem
-não foi avaliado (não havia chave de API no desenvolvimento).
+(`casos_adicionais.json`) **escritos pelo desenvolvedor**. Esses 100% são otimistas: alguns pesos e
+regras foram ajustados olhando esse mesmo conjunto.
+
+**Conjunto de validação separado** (`casos_validacao.json`): 15 perguntas em linguagem natural,
+escritas antes das últimas correções e **nunca usadas para ajustar** regras, pesos ou limiares. É o
+número mais próximo do que um avaliador vai encontrar digitando perguntas próprias:
+
+| Métrica | Antes das correções | Depois (medição final) |
+|---|---|---|
+| Roteamento | 11/15 | 11/15 |
+| Recuperação | 7/14 | 9/14 |
+| Fidelidade | 7/14 | 9/14 |
+| Abstenção | 1/1 | 1/1 |
+
+As correções foram guiadas só por exemplos de uma revisão externa ("Quero pedir reembolso de uma
+viagem, qual o procedimento?" e "Como pedir reembolso de despesas?"), que hoje respondem pela
+política de reembolso. Financeiro e Ouvidoria acertam todas as perguntas da validação. As falhas
+restantes são de Informações Internas com vocabulário que não aparece nos documentos ("dinheiro de
+volta", "e-mail estranho", "sistema cair", "trabalhar de casa") e "faturou" no financeiro. Elas
+**não foram corrigidas de propósito**, para o conjunto continuar valendo como medição: pedem
+entendimento de sinônimos, que é o papel do modelo de linguagem.
+
+### Avaliação com modelo de linguagem
+
+Sem chave na máquina de desenvolvimento, a medição com um modelo real fica a um clique:
+
+1. No GitHub: *Settings → Secrets and variables → Actions → New repository secret*, nome
+   `LLM_API_KEY`, valor = chave da Anthropic.
+2. Aba *Actions* → **Avaliação com modelo (manual)** → *Run workflow*.
+
+O workflow ([`.github/workflows/llm-eval.yml`](.github/workflows/llm-eval.yml)) roda as duas
+avaliações e as 38 interações com `LLM_PROVIDER=anthropic`, mostra as métricas no resumo da
+execução e guarda os resultados e o registro de interações como artefato. Ele só roda quando
+disparado à mão, porque gera custo.
+
+Localmente (PowerShell), com a chave apenas na sessão do terminal:
+
+```powershell
+cd backend
+$env:LLM_PROVIDER="anthropic"; $env:LLM_API_KEY="<sua-chave>"
+python -m tests.eval.run_eval --validacao --save
+```
+
+Ou de graça com [Ollama](https://ollama.com): `ollama pull <modelo>` e
+`$env:LLM_PROVIDER="openai"; $env:LLM_BASE_URL="http://localhost:11434/v1"; $env:LLM_MODEL="<modelo>"`.
 
 ## Segurança
 
@@ -585,7 +634,9 @@ não foi avaliado (não havia chave de API no desenvolvimento).
 - **PDF/DOCX** não suportados (nenhum anexo nesses formatos).
 - **Sem autenticação, autorização ou rate limiting.** Não é adequado para exposição pública.
 - **Fidelidade** medida por palavras-chave; não há avaliação semântica com modelo juiz.
-- Docker não foi executado na máquina de desenvolvimento; a validação é feita pelo CI (Linux).
+- Docker não foi executado na máquina de desenvolvimento; está verificado pelo CI (Linux).
+- **Sinônimos fora do vocabulário das bases** não são entendidos sem modelo de linguagem
+  (5 das 15 perguntas da validação separada); ver [Testes e avaliação](#testes-e-avaliação).
 
 Melhorias futuras: histórico de conversa, stemmer RSLP, embeddings como opção, avaliação com o
 modelo ativo, autenticação, rate limiting e integração real com a ouvidoria.
